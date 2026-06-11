@@ -16,6 +16,11 @@ Built using:
 - SQLite
 - AI-assisted development
 
+
+Why I Built This - 
+
+I wanted to strengthen my Python fundamentals while exploring AI-assisted development. Instead of following another tutorial, I built TechTales Python Mentor to learn Python through interactive lessons, coding challenges, and instant feedback.
+
 Screenshot of the App -
 
 <img width="1884" height="964" alt="image" src="https://github.com/user-attachments/assets/267b4188-5acb-4f6f-9410-f55b1b5c1ff2" />
