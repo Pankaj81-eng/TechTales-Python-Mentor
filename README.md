@@ -42,3 +42,18 @@ v0.4
 
 v0.5
 🔄 Daily Challenges
+
+
+Steps to run -
+
+git clone <repo>
+
+cd TechTales-Python-Mentor
+
+python -m venv .venv
+
+source .venv/bin/activate
+
+pip install -r requirements.txt
+
+streamlit run app.py
