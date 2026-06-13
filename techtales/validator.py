@@ -23,6 +23,8 @@ GENERIC_NAMES = {
     "z",
 }
 
+ALLOWED_SHORT_NAMES = {"xp", "id", "db", "hp", "mp"}
+
 
 class ChallengeValidator:
     def validate(self, topic: Topic, submitted_code: str, execution_result: ExecutionResult | None = None) -> ValidationResult:
@@ -30,6 +32,8 @@ class ChallengeValidator:
             return validate_variables_challenge(submitted_code, execution_result)
         if topic.key == "loops":
             return validate_loops_challenge(submitted_code, execution_result)
+        if topic.key == "f_strings":
+            return validate_fstrings_challenge(submitted_code, execution_result)
 
         has_code = bool(submitted_code.strip())
         return ValidationResult(
@@ -199,6 +203,96 @@ def validate_loops_challenge(
     return ValidationResult(passed=passed, requirements=requirements, feedback=feedback)
 
 
+def validate_fstrings_challenge(
+    submitted_code: str,
+    execution_result: ExecutionResult | None = None,
+) -> ValidationResult:
+    try:
+        tree = ast.parse(submitted_code)
+    except SyntaxError:
+        return ValidationResult(
+            passed=False,
+            requirements=(
+                RequirementResult("Code can be read as Python", False, "Fix the syntax error so Python can parse the submission."),
+                RequirementResult("An f-string is used", False, 'Add an f-string, for example: print(f"Hello {name}!")'),
+                RequirementResult("f-string contains a placeholder", False, 'Put a variable inside {} in your f-string, for example: f"Hello {name}!"'),
+                RequirementResult("A text variable is used in the f-string", False, 'Assign a name to a variable and include it in {}, for example: learner_name = "Ari".'),
+                RequirementResult("A number variable is used in the f-string", False, "Assign a number to a variable and include it in {}, for example: xp = 100."),
+                RequirementResult("Output is printed", False, "Call print() with your f-string to show the result."),
+            ),
+            feedback="Python could not read this submission yet. Check the syntax, then try again.",
+        )
+
+    fstrings = [node for node in ast.walk(tree) if isinstance(node, ast.JoinedStr)]
+    has_fstring = bool(fstrings)
+    has_placeholder = any(
+        any(isinstance(part, ast.FormattedValue) for part in fstring.values)
+        for fstring in fstrings
+    )
+
+    fstring_var_names: set[str] = set()
+    for fstring in fstrings:
+        for node in ast.walk(fstring):
+            if isinstance(node, ast.FormattedValue):
+                for name_node in ast.walk(node):
+                    if isinstance(name_node, ast.Name):
+                        fstring_var_names.add(name_node.id)
+
+    assignments = _collect_assignments(tree)
+    string_vars = {
+        name for name, value in assignments.items()
+        if isinstance(value, ast.Constant) and isinstance(value.value, str) and value.value.strip()
+    }
+    number_vars = {
+        name for name, value in assignments.items()
+        if isinstance(value, ast.Constant)
+        and isinstance(value.value, (int, float))
+        and not isinstance(value.value, bool)
+    }
+
+    uses_string_var = bool(string_vars & fstring_var_names)
+    uses_number_var = bool(number_vars & fstring_var_names)
+
+    stdout = execution_result.stdout if execution_result else ""
+    has_output = bool(_printed_non_empty_lines(stdout))
+
+    requirements = (
+        RequirementResult(
+            "An f-string is used",
+            has_fstring,
+            'Start a string with f to make it an f-string, for example: f"Hello {name}!"',
+        ),
+        RequirementResult(
+            "f-string contains a placeholder",
+            has_placeholder,
+            'Put a variable name inside {} in your f-string, for example: f"Score: {xp}"',
+        ),
+        RequirementResult(
+            "A text variable is used in the f-string",
+            uses_string_var,
+            'Assign a name to a variable and include it in {}, for example: learner_name = "Ari" then f"{learner_name}".',
+        ),
+        RequirementResult(
+            "A number variable is used in the f-string",
+            uses_number_var,
+            "Assign a number to a variable and include it in {}, for example: xp = 100 then f\"{xp}\".",
+        ),
+        RequirementResult(
+            "Output is printed",
+            has_output,
+            "Call print() with your f-string so the sentence appears on screen.",
+        ),
+    )
+    passed = all(r.passed for r in requirements)
+
+    if passed:
+        feedback = "Well done. Your f-string combines both variables into one clean sentence."
+    else:
+        feedback = "Good start. Review the checks below and update your f-string, then submit again."
+
+    return ValidationResult(passed=passed, requirements=requirements, feedback=feedback)
+
+
 def _collect_assignments(tree: ast.AST) -> dict[str, ast.AST]:
     assignments: dict[str, ast.AST] = {}
     for node in ast.walk(tree):
@@ -267,6 +361,8 @@ def _loop_step_suggestion(has_literal_placeholder: bool) -> str:
 
 def _is_meaningful_name(name: str) -> bool:
     clean_name = name.strip("_").lower()
+    if clean_name in ALLOWED_SHORT_NAMES:
+        return True
     return (
         len(clean_name) >= 3
         and clean_name not in GENERIC_NAMES

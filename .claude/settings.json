@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash(python *)",
+      "Bash(streamlit *)",
+      "Bash(pip *)",
+      "Bash(ls *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(ruff *)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"[$(date +%H:%M:%S)] RUFF\" >> /tmp/techtales-hooks.log && cd /Users/pankajkumar/Documents/AI_Projects/TechTales-Python-Mentor && .venv/bin/ruff check --select F --quiet . >> /tmp/techtales-hooks.log 2>&1 && echo '[OK] No issues found' >> /tmp/techtales-hooks.log || true"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"[$(date +%H:%M:%S)] STOP  Claude finished. Run: streamlit run app.py\" >> /tmp/techtales-hooks.log"
+          }
+        ]
+      }
+    ]
+  }
+}

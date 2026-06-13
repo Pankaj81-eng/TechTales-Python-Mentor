@@ -59,6 +59,30 @@ is_ready = False
 print()''',
     ),
     Topic(
+        key="f_strings",
+        title="F-Strings",
+        summary="Embed variable values directly inside a string using {}.",
+        lesson="""
+An f-string is a string with an `f` in front of the opening quote. Anything you put inside `{}`
+gets replaced with the actual value of that variable when the program runs.
+
+This is the cleanest way to build a sentence that mixes fixed text with variable values — no
+joining with `+`, no converting numbers to strings manually.
+        """,
+        example_code='''hero_name = "Ari"
+level = 5
+
+print(f"{hero_name} has reached level {level}!")''',
+        challenge="""
+Create two variables — a learner's name and their XP score. Use a single f-string to print one
+sentence that includes both values.
+        """,
+        starter_code='''learner_name = ""
+xp = 0
+
+print(f"")''',
+    ),
+    Topic(
         key="if_else",
         title="If/Else",
         summary="Teach a program to choose a path based on a condition.",

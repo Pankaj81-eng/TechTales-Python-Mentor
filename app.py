@@ -18,6 +18,7 @@ from techtales.db import (
     save_submission,
 )
 from techtales.validator import ChallengeValidator
+from techtales.execution import execute_user_code
 
 
 st.set_page_config(
@@ -193,10 +194,11 @@ def progress_label(progress: dict[str, object] | None) -> str:
 
 
 def is_topic_unlocked(topic_key: str, passed_topic_keys: set[str]) -> bool:
-    if topic_key != "data_types":
-        return True
-
-    return "variables" in passed_topic_keys
+    if topic_key == "data_types":
+        return "variables" in passed_topic_keys
+    if topic_key == "f_strings":
+        return "data_types" in passed_topic_keys
+    return True
 
 
 def topic_label(topic_key: str, title: str, passed_topic_keys: set[str]) -> str:
@@ -316,7 +318,7 @@ def render_lesson(topic_key: str, db_path: Path) -> None:
     latest_submission = get_latest_submission(db_path, topic.key)
     current_xp = get_current_xp(db_path)
 
-    st.markdown(f"# TechTales Python Mentor")
+    st.markdown("# TechTales Python Mentor")
     st.caption("A green little corner for learning Python one story at a time.")
     st.metric("Current XP", current_xp)
 
@@ -354,12 +356,18 @@ def render_lesson(topic_key: str, db_path: Path) -> None:
             key=f"code_{topic.key}",
         )
 
+        # Run the code and capture output before validation
+        execution_result = None
+        if code.strip():
+            execution_result = execute_user_code(code)
+
         if st.button("Submit challenge", type="primary", use_container_width=True):
             if not code.strip():
                 st.warning("Add some Python code before submitting your challenge.")
                 return
 
-            validation = ChallengeValidator().validate(topic=topic, submitted_code=code)
+            # Validate (existing logic, unchanged)
+            validation = ChallengeValidator().validate(topic=topic, submitted_code=code, execution_result=execution_result)
             validation_details = [
                 {
                     "label": requirement.label,
@@ -376,8 +384,20 @@ def render_lesson(topic_key: str, db_path: Path) -> None:
                 evaluator_message=validation.feedback,
                 challenge_passed=validation.passed,
                 validation_details=validation_details,
+                stdout=execution_result.stdout if execution_result else "",
+                runtime_error=execution_result.error if execution_result else None,
             )
             st.rerun()
+
+        # ---- New Program Output Panel ----
+        st.markdown("## 📺 Your Program Output")
+        if execution_result:
+            if execution_result.stdout:
+                st.code(execution_result.stdout, language="text")
+            else:
+                st.info("Nothing was displayed")
+        else:
+            st.info("Run your code to see the output.")
 
         if latest_submission:
             render_results_panel(topic.key, latest_submission)
