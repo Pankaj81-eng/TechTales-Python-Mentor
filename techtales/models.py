@@ -1,6 +1,19 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+
+@dataclass(frozen=True)
+class MentorCard:
+    opening: str = ""
+    pass_message: str = ""
+    hints: tuple[tuple[str, str], ...] = ()
+
+    def hint_for(self, label: str) -> str | None:
+        for req_label, hint in self.hints:
+            if req_label == label:
+                return hint
+        return None
 
 
 @dataclass(frozen=True)
@@ -12,6 +25,8 @@ class Topic:
     example_code: str
     challenge: str
     starter_code: str
+    mentor: MentorCard = field(default_factory=MentorCard)
+    expected_output: str | None = None
 
 
 @dataclass(frozen=True)

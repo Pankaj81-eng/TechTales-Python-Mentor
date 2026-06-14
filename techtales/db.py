@@ -260,3 +260,42 @@ def get_passed_topic_keys(db_path: Path) -> set[str]:
             """
         ).fetchall()
     return {row["topic_key"] for row in rows}
+
+
+def get_streak(db_path: Path) -> tuple[int, int]:
+    """Returns (current_streak_days, longest_streak_days)."""
+    from datetime import date, timedelta
+
+    with connect(db_path) as connection:
+        rows = connection.execute(
+            "SELECT DISTINCT date(submitted_at) AS day FROM submissions ORDER BY day DESC;"
+        ).fetchall()
+
+    if not rows:
+        return 0, 0
+
+    days_desc = [date.fromisoformat(row["day"]) for row in rows]
+    today = date.today()
+
+    current = 0
+    if days_desc[0] >= today - timedelta(days=1):
+        expected = days_desc[0]
+        for day in days_desc:
+            if day == expected:
+                current += 1
+                expected -= timedelta(days=1)
+            else:
+                break
+
+    days_asc = sorted(days_desc)
+    longest = 1
+    run = 1
+    for i in range(1, len(days_asc)):
+        if days_asc[i] - days_asc[i - 1] == timedelta(days=1):
+            run += 1
+            if run > longest:
+                longest = run
+        else:
+            run = 1
+
+    return current, longest
