@@ -33,6 +33,16 @@ ALLOWED_BUILTINS = MappingProxyType(
         "str": str,
         "sum": sum,
         "tuple": tuple,
+        # type() lets the Data Types lesson report a value's type. Safe here
+        # because the classic type()-based escape needs dunder attribute access
+        # (e.g. .__subclasses__()), which _validate_safe_ast already blocks.
+        "type": type,
+        # __build_class__ is the internal function Python calls when the `class`
+        # statement runs (e.g. class Dog: ...). Without it, class definitions
+        # raise NameError inside exec. Adding it doesn't weaken the sandbox:
+        # class bodies still run through the same AST validator and the same
+        # restricted builtins, so no new escape routes are opened.
+        "__build_class__": __build_class__,
     }
 )
 
@@ -101,16 +111,19 @@ def _validate_safe_ast(code: str) -> str | None:
 
 def _run_code_worker(code: str, result_queue: multiprocessing.Queue) -> None:
     stdout = io.StringIO()
-    globals_scope = {
+    # Run in a single namespace (globals == locals) so the code behaves like a
+    # normal module: top-level defs are visible to themselves, which is what
+    # makes recursion and mutual function references work. Security still comes
+    # only from the __builtins__ allowlist and the AST block list above.
+    namespace = {
         "__builtins__": ALLOWED_BUILTINS,
         "__name__": "__techtales_submission__",
     }
-    locals_scope: dict[str, object] = {}
 
     try:
         compiled = compile(code, "<learner submission>", "exec")
         with contextlib.redirect_stdout(stdout):
-            exec(compiled, globals_scope, locals_scope)
+            exec(compiled, namespace)
     except Exception:
         error = traceback.format_exc(limit=1).strip().splitlines()[-1]
         result_queue.put({"stdout": stdout.getvalue()[:MAX_OUTPUT_CHARACTERS], "error": error})
