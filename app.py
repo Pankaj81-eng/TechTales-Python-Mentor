@@ -7,6 +7,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from techtales.content import TOPICS, get_topic
+from techtales.models import Submission
 from techtales.db import (
     get_anon_client,
     make_client,
@@ -987,12 +988,15 @@ def render_auth_page() -> None:
                     st.warning("Enter a valid email and a password of at least 6 characters.")
 
 
-def render_sidebar(client, user_id: str, passed_topic_keys: set[str], user_email: str = "") -> None:
-    progress = get_progress(client)
+def render_sidebar(client, user_id: str | None, passed_topic_keys: set[str], user_email: str = "") -> None:
+    is_guest = client is None
+    progress = get_progress(client) if not is_guest else {}
     completed_count = len(passed_topic_keys)
-    current_xp = get_current_xp(client)
-    level, level_xp, level_to_next = get_level(current_xp)
-    current_streak, longest_streak = get_streak(client)
+
+    if not is_guest:
+        current_xp = get_current_xp(client)
+        level, level_xp, level_to_next = get_level(current_xp)
+        current_streak, longest_streak = get_streak(client)
 
     with st.sidebar:
         st.markdown(
@@ -1003,41 +1007,64 @@ def render_sidebar(client, user_id: str, passed_topic_keys: set[str], user_email
             unsafe_allow_html=True,
         )
 
-        if user_email:
+        if is_guest:
             st.markdown(
-                f'<div style="font-size:0.68rem;color:#818cf8;text-align:center;margin-bottom:0.3rem;font-family:Inter,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{user_email}</div>',
+                '<div style="text-align:center;font-size:0.73rem;color:#818cf8;padding:0.2rem 0 0.5rem;font-family:Inter,sans-serif">Exploring as guest</div>',
                 unsafe_allow_html=True,
             )
-        if st.button("Log Out", use_container_width=True, key="logout_btn"):
-            for k in ["supabase_session", "supabase_client", "selected_topic", "sidebar_open_units"]:
-                st.session_state.pop(k, None)
-            st.rerun()
-
-        st.divider()
-
-        xp_col, done_col = st.columns(2)
-        xp_col.metric("XP", current_xp)
-        done_col.metric("Done", f"{completed_count}/{len(TOPICS)}")
-
-        if current_streak >= 1:
-            streak_text = f"🔥 {current_streak} day{'s' if current_streak != 1 else ''} streak"
-            if longest_streak > current_streak:
-                streak_text += f" · best {longest_streak}"
-            st.markdown(
-                f'<div style="text-align:center;font-size:0.72rem;font-weight:600;color:#fb923c;font-family:Inter,sans-serif;margin-top:0.15rem">{streak_text}</div>',
-                unsafe_allow_html=True,
-            )
-
-        level_pct = min(level_xp / level_to_next, 1.0) if level_to_next else 1.0
-        st.progress(level_pct)
-        if level >= _MAX_LEVEL:
-            level_label = f"Level {level}  ·  Max Level!"
+            tab_l, tab_s = st.tabs(["Log In", "Sign Up"])
+            with tab_l:
+                g_email = st.text_input("Email", key="g_login_email", placeholder="you@example.com", label_visibility="collapsed")
+                g_pass = st.text_input("Password", type="password", key="g_login_pass", placeholder="Password", label_visibility="collapsed")
+                if st.button("Log In", type="primary", use_container_width=True, key="g_login_btn"):
+                    if g_email and g_pass:
+                        _handle_login(g_email, g_pass)
+                    else:
+                        st.warning("Enter email and password.")
+            with tab_s:
+                g_email2 = st.text_input("Email", key="g_signup_email", placeholder="you@example.com", label_visibility="collapsed")
+                g_pass2 = st.text_input("Password", type="password", key="g_signup_pass", placeholder="Min 6 characters", label_visibility="collapsed")
+                if st.button("Sign Up Free", type="primary", use_container_width=True, key="g_signup_btn"):
+                    if g_email2 and len(g_pass2) >= 6:
+                        _handle_signup(g_email2, g_pass2)
+                    else:
+                        st.warning("Need email + 6+ char password.")
         else:
-            level_label = f"Level {level}  ·  {level_xp} / {level_to_next} XP to next"
-        st.markdown(
-            f'<div style="font-size: 0.72rem; color: #818cf8; text-align: center; margin-top: -0.3rem; font-family: Inter, sans-serif; font-weight: 600; letter-spacing: 0.03em;">{level_label}</div>',
-            unsafe_allow_html=True,
-        )
+            if user_email:
+                st.markdown(
+                    f'<div style="font-size:0.68rem;color:#818cf8;text-align:center;margin-bottom:0.3rem;font-family:Inter,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{user_email}</div>',
+                    unsafe_allow_html=True,
+                )
+            if st.button("Log Out", use_container_width=True, key="logout_btn"):
+                for k in ["supabase_session", "supabase_client", "selected_topic", "sidebar_open_units"]:
+                    st.session_state.pop(k, None)
+                st.rerun()
+
+            st.divider()
+
+            xp_col, done_col = st.columns(2)
+            xp_col.metric("XP", current_xp)
+            done_col.metric("Done", f"{completed_count}/{len(TOPICS)}")
+
+            if current_streak >= 1:
+                streak_text = f"🔥 {current_streak} day{'s' if current_streak != 1 else ''} streak"
+                if longest_streak > current_streak:
+                    streak_text += f" · best {longest_streak}"
+                st.markdown(
+                    f'<div style="text-align:center;font-size:0.72rem;font-weight:600;color:#fb923c;font-family:Inter,sans-serif;margin-top:0.15rem">{streak_text}</div>',
+                    unsafe_allow_html=True,
+                )
+
+            level_pct = min(level_xp / level_to_next, 1.0) if level_to_next else 1.0
+            st.progress(level_pct)
+            if level >= _MAX_LEVEL:
+                level_label = f"Level {level}  ·  Max Level!"
+            else:
+                level_label = f"Level {level}  ·  {level_xp} / {level_to_next} XP to next"
+            st.markdown(
+                f'<div style="font-size: 0.72rem; color: #818cf8; text-align: center; margin-top: -0.3rem; font-family: Inter, sans-serif; font-weight: 600; letter-spacing: 0.03em;">{level_label}</div>',
+                unsafe_allow_html=True,
+            )
 
         st.divider()
         st.caption("LESSONS")
@@ -1325,10 +1352,15 @@ def render_locked_topic(topic_key: str) -> None:
     )
 
 
-def render_lesson(topic_key: str, client, user_id: str, passed_topic_keys: set[str]) -> None:
+def render_lesson(topic_key: str, client, user_id: str | None, passed_topic_keys: set[str]) -> None:
     topic = get_topic(topic_key)
-    mark_topic_viewed(client, user_id, topic.key)
-    latest_submission = get_latest_submission(client, topic.key)
+    if client is not None:
+        mark_topic_viewed(client, user_id, topic.key)
+    latest_submission = (
+        get_latest_submission(client, topic.key)
+        if client is not None
+        else st.session_state.get(f"guest_result_{topic.key}")
+    )
 
     topic_index = next((i for i, t in enumerate(TOPICS) if t.key == topic.key), 0)
     lesson_num = topic_index + 1
@@ -1401,18 +1433,35 @@ def render_lesson(topic_key: str, client, user_id: str, passed_topic_keys: set[s
                     {"label": r.label, "passed": r.passed, "suggestion": r.suggestion}
                     for r in validation.requirements
                 ]
-                save_submission(
-                    client=client,
-                    user_id=user_id,
-                    topic_key=topic.key,
-                    code=code,
-                    evaluator_status=validation.status,
-                    evaluator_message=validation.feedback,
-                    challenge_passed=validation.passed,
-                    validation_details=validation_details,
-                    stdout=execution_result.stdout if execution_result else "",
-                    runtime_error=execution_result.error if execution_result else None,
-                )
+                if client is not None:
+                    save_submission(
+                        client=client,
+                        user_id=user_id,
+                        topic_key=topic.key,
+                        code=code,
+                        evaluator_status=validation.status,
+                        evaluator_message=validation.feedback,
+                        challenge_passed=validation.passed,
+                        validation_details=validation_details,
+                        stdout=execution_result.stdout if execution_result else "",
+                        runtime_error=execution_result.error if execution_result else None,
+                    )
+                else:
+                    st.session_state[f"guest_result_{topic.key}"] = Submission(
+                        id=None,
+                        topic_key=topic.key,
+                        code=code,
+                        evaluator_status=validation.status,
+                        evaluator_message=validation.feedback,
+                        submitted_at="",
+                        challenge_passed=validation.passed,
+                        validation_details=json.dumps(validation_details),
+                        xp_awarded=0,
+                        stdout=execution_result.stdout if execution_result else "",
+                        runtime_error=execution_result.error if execution_result else None,
+                    )
+                    if validation.passed:
+                        st.session_state.setdefault("guest_passed_topics", set()).add(topic.key)
                 if validation.passed:
                     st.session_state[f"celebrate_{topic.key}"] = True
                 st.rerun()
@@ -1431,22 +1480,33 @@ def render_lesson(topic_key: str, client, user_id: str, passed_topic_keys: set[s
 
         if latest_submission:
             render_results_panel(topic.key, latest_submission)
+            if client is None and latest_submission.challenge_passed:
+                st.markdown(
+                    '<div style="border:1px solid #a5b4fc;background:#eef2ff;border-radius:12px;'
+                    'padding:1rem 1.2rem;text-align:center;margin-top:0.75rem">'
+                    '<strong style="color:#1e1b4b;font-family:Inter,sans-serif">Sign up to save your progress</strong>'
+                    '<p style="color:#4f46e5;font-size:0.85rem;margin:0.3rem 0 0;font-family:Inter,sans-serif">'
+                    'Create a free account — your XP, streak, and history are stored in the cloud.'
+                    '</p></div>',
+                    unsafe_allow_html=True,
+                )
 
 
 def main() -> None:
     apply_theme()
 
-    if not _is_authenticated():
-        render_auth_page()
-        return
-
-    session = st.session_state.supabase_session
-    client = st.session_state.supabase_client
-    user_id = session["user_id"]
-    user_email = session["user_email"]
-
-    initialize_user(client, user_id)
-    passed_topic_keys = get_passed_topic_keys(client)
+    if _is_authenticated():
+        session = st.session_state.supabase_session
+        client = st.session_state.supabase_client
+        user_id = session["user_id"]
+        user_email = session["user_email"]
+        initialize_user(client, user_id)
+        passed_topic_keys = get_passed_topic_keys(client)
+    else:
+        client = None
+        user_id = None
+        user_email = ""
+        passed_topic_keys = st.session_state.get("guest_passed_topics", set())
 
     if "selected_topic" not in st.session_state:
         st.session_state.selected_topic = TOPICS[0].key
