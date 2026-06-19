@@ -6,7 +6,8 @@ An interactive Python learning platform built for absolute beginners. Learn Pyth
 
 ## Screenshot
 
-<img width="2940" height="1912" alt="image" src="https://github.com/user-attachments/assets/7b98dd00-0573-4416-b5c7-0c448f83227e" />
+<img width="2940" height="1912" alt="image" src="https://github.com/user-attachments/assets/2606c31c-dd03-42bd-be06-b852a8167f3b" />
+
 
 ---
 
