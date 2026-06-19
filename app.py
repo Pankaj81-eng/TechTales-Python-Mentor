@@ -5,6 +5,7 @@ from html import escape
 from pathlib import Path
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from techtales.content import TOPICS, get_topic
 from techtales.db import (
@@ -28,32 +29,161 @@ st.set_page_config(
     layout="wide",
 )
 
+# Linear unlock chain — each topic unlocks the next, in the order of the TOPICS tuple.
+# write_a_program is the first lesson and has no prerequisite.
 TOPIC_PREREQUISITES: dict[str, tuple[str, str]] = {
+    "variables": ("write_a_program", "Write a Program"),
     "data_types": ("variables", "Variables"),
-    "f_strings": ("data_types", "Data Types"),
-    "write_a_program": ("functions", "Functions"),
-    "elif": ("write_a_program", "Write a Program"),
-    "lists": ("elif", "Elif"),
-    "dictionaries": ("lists", "Lists"),
-    "string_methods": ("dictionaries", "Dictionaries"),
-    "while_loops": ("string_methods", "String Methods"),
-    "type_conversion": ("while_loops", "While Loops"),
+    "type_conversion": ("data_types", "Data Types"),
+    "arithmetic_operators": ("type_conversion", "Type Conversion"),
+    "f_strings": ("arithmetic_operators", "Arithmetic Operators"),
+    "exercise_profile_card": ("f_strings", "F-Strings"),
+    "string_indexing": ("exercise_profile_card", "Exercise: Profile Card"),
+    "string_methods": ("string_indexing", "String Indexing & Slicing"),
+    "string_split_join": ("string_methods", "String Methods"),
+    "comparison_operators": ("string_split_join", "Split & Join"),
+    "boolean_logic": ("comparison_operators", "Comparison Operators"),
+    "if_else": ("boolean_logic", "Boolean Logic"),
+    "elif": ("if_else", "If/Else"),
+    "membership_operators": ("elif", "Elif"),
+    "conditional_expression": ("membership_operators", "Membership: in / not in"),
+    "exercise_grade_checker": ("conditional_expression", "Conditional Expression"),
+    "loops": ("exercise_grade_checker", "Exercise: Grade Checker"),
+    "for_each": ("loops", "For Loops & range()"),
+    "enumerate_loop": ("for_each", "Looping Over Collections"),
+    "while_loops": ("enumerate_loop", "Looping with enumerate()"),
+    "break_continue": ("while_loops", "While Loops"),
+    "nested_loops": ("break_continue", "Break & Continue"),
+    "exercise_pattern_printer": ("nested_loops", "Nested Loops"),
+    "lists": ("exercise_pattern_printer", "Exercise: Pattern Printer"),
+    "list_methods": ("lists", "Lists"),
+    "list_slicing": ("list_methods", "List Methods"),
+    "list_comprehensions": ("list_slicing", "List Slicing"),
+    "tuples": ("list_comprehensions", "List Comprehensions"),
+    "tuple_unpacking": ("tuples", "Tuples"),
+    "sets": ("tuple_unpacking", "Tuple Unpacking"),
+    "dictionaries": ("sets", "Sets"),
+    "dict_methods": ("dictionaries", "Dictionaries"),
+    "dict_iteration": ("dict_methods", "Dictionary Methods"),
+    "nested_data": ("dict_iteration", "Looping Over Dictionaries"),
+    "exercise_inventory": ("nested_data", "Nested Data"),
+    "functions": ("exercise_inventory", "Exercise: Inventory Tracker"),
+    "function_parameters": ("functions", "Functions"),
+    "default_parameters": ("function_parameters", "Function Parameters"),
+    "multiple_return": ("default_parameters", "Default Parameters"),
+    "none_type": ("multiple_return", "Returning Multiple Values"),
+    "recursion": ("none_type", "None"),
+    "exercise_calculator": ("recursion", "Recursion"),
+    # Unit 7 — Object-Oriented Programming
+    "classes": ("exercise_calculator", "Exercise: Mini Calculator"),
+    "class_definition": ("classes", "What is a Class?"),
+    "instance_creation": ("class_definition", "Define a Class with __init__"),
+    "class_methods": ("instance_creation", "Create Objects from a Class"),
+    "class_attributes": ("class_methods", "Add Methods to a Class"),
+    "inheritance": ("class_attributes", "Work with Object Attributes"),
+    "exercise_class_design": ("inheritance", "Inheritance — Extend a Class"),
 }
 
 TOPIC_ICONS: dict[str, str] = {
+    # Unit 1 — Foundations
+    "write_a_program": "🌍",
     "variables": "📦",
     "data_types": "🔢",
-    "f_strings": "🪄",
-    "if_else": "🔀",
-    "loops": "🔁",
-    "functions": "⚙️",
-    "write_a_program": "🌍",
-    "elif": "⚖️",
-    "lists": "📋",
-    "dictionaries": "📖",
-    "string_methods": "🔤",
-    "while_loops": "🔄",
     "type_conversion": "⚡",
+    "arithmetic_operators": "➕",
+    "f_strings": "🪄",
+    "exercise_profile_card": "🪪",
+    # Unit 2 — Text
+    "string_indexing": "🔠",
+    "string_methods": "🔤",
+    "string_split_join": "✂️",
+    # Unit 3 — Decisions
+    "comparison_operators": "🟰",
+    "boolean_logic": "🚦",
+    "if_else": "🔀",
+    "elif": "⚖️",
+    "membership_operators": "🔎",
+    "conditional_expression": "❓",
+    "exercise_grade_checker": "🎯",
+    # Unit 4 — Loops
+    "loops": "🔁",
+    "for_each": "🚶",
+    "enumerate_loop": "#️⃣",
+    "while_loops": "🔄",
+    "break_continue": "🛑",
+    "nested_loops": "🔲",
+    "exercise_pattern_printer": "🎨",
+    # Unit 5 — Collections
+    "lists": "📋",
+    "list_methods": "🧰",
+    "list_slicing": "🔪",
+    "list_comprehensions": "🧪",
+    "tuples": "🧊",
+    "tuple_unpacking": "🎁",
+    "sets": "🟣",
+    "dictionaries": "📖",
+    "dict_methods": "🗂️",
+    "dict_iteration": "📑",
+    "nested_data": "🪆",
+    "exercise_inventory": "🎒",
+    # Unit 6 — Functions
+    "functions": "⚙️",
+    "function_parameters": "🎚️",
+    "default_parameters": "🔧",
+    "multiple_return": "↩️",
+    "none_type": "🕳️",
+    "recursion": "🌀",
+    "exercise_calculator": "🏆",
+    # Unit 7 — Object-Oriented Programming
+    "classes": "🏗️",
+    "class_definition": "📝",
+    "instance_creation": "🎭",
+    "class_methods": "🤖",
+    "class_attributes": "🏷️",
+    "inheritance": "🌳",
+    "exercise_class_design": "💎",
+}
+
+# Unit structure: groups topics by learning unit
+UNIT_STRUCTURE: dict[str, tuple[str, ...]] = {
+    "🌍 Foundations": (
+        "write_a_program", "variables", "data_types", "type_conversion",
+        "arithmetic_operators", "f_strings", "exercise_profile_card",
+    ),
+    "🔠 Text": (
+        "string_indexing", "string_methods", "string_split_join",
+    ),
+    "🟰 Decisions": (
+        "comparison_operators", "boolean_logic", "if_else", "elif",
+        "membership_operators", "conditional_expression", "exercise_grade_checker",
+    ),
+    "🔁 Loops": (
+        "loops", "for_each", "enumerate_loop", "while_loops",
+        "break_continue", "nested_loops", "exercise_pattern_printer",
+    ),
+    "📋 Collections": (
+        "lists", "list_methods", "list_slicing", "list_comprehensions",
+        "tuples", "tuple_unpacking", "sets", "dictionaries", "dict_methods",
+        "dict_iteration", "nested_data", "exercise_inventory",
+    ),
+    "⚙️ Functions": (
+        "functions", "function_parameters", "default_parameters",
+        "multiple_return", "none_type", "recursion", "exercise_calculator",
+    ),
+    "🏗️ OOP Concepts": (
+        "classes", "class_definition", "instance_creation", "class_methods",
+        "class_attributes", "inheritance", "exercise_class_design",
+    ),
+}
+
+_UNIT_DIFFICULTY: dict[str, str] = {
+    "🌍 Foundations": "Beginner",
+    "🔠 Text": "Beginner",
+    "🟰 Decisions": "Intermediate",
+    "🔁 Loops": "Intermediate",
+    "📋 Collections": "Intermediate",
+    "⚙️ Functions": "Advanced",
+    "🏗️ OOP Concepts": "Advanced",
 }
 
 _LEVEL_THRESHOLDS = [0, 40, 100, 160, 240]
@@ -95,43 +225,32 @@ def _translate_error(error: str) -> str | None:
     return None
 
 
+def get_topic_difficulty(topic_key: str) -> str:
+    for unit_name, keys in UNIT_STRUCTURE.items():
+        if topic_key in keys:
+            return _UNIT_DIFFICULTY.get(unit_name, "Beginner")
+    return "Beginner"
+
+
 def apply_theme() -> None:
     st.markdown(
-        '<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">',
+        """
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+        """,
         unsafe_allow_html=True,
     )
     st.markdown(
         """
         <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-        @font-face {
-            font-family: 'Material Icons';
-            font-style: normal;
-            font-weight: 400;
-            src: url(https://fonts.gstatic.com/s/materialicons/v140/flUhRq6tzZclQEJ-Vdg-IuiaDsNc.woff2) format('woff2');
-        }
-
-        .material-icons {
-            font-family: 'Material Icons' !important;
-            font-weight: normal;
-            font-style: normal;
-            font-size: 20px;
-            line-height: 1;
-            letter-spacing: normal;
-            text-transform: none;
-            display: inline-block;
-            white-space: nowrap;
-            direction: ltr;
-            -webkit-font-feature-settings: 'liga';
-            font-feature-settings: 'liga';
-            -webkit-font-smoothing: antialiased;
-        }
-
-        /* Prevent broken icon text from overflowing if font fails to load */
+        /* Hide Streamlit's built-in sidebar toggle button completely.
+           It renders "keyboard_double_arrow_right" via a Material Symbols font
+           ligature; when that font fails to load the raw text floods the screen.
+           The sidebar can still be toggled with the < keyboard shortcut. */
         [data-testid="collapsedControl"] {
-            overflow: hidden !important;
-            max-width: 2.5rem !important;
+            display: none !important;
         }
 
         :root {
@@ -705,9 +824,81 @@ def apply_theme() -> None:
             margin: 0;
             white-space: pre-wrap;
         }
+
+        /* ── DIFFICULTY BADGE ───────────────────────── */
+        .tt-difficulty-badge {
+            display: inline-block;
+            border-radius: 999px;
+            padding: 0.2rem 0.75rem;
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            font-family: 'Inter', sans-serif;
+            vertical-align: middle;
+            margin-left: 0.6rem;
+            position: relative;
+            top: -2px;
+        }
+        .tt-difficulty-beginner { background: #d1fae5; color: #065f46; }
+        .tt-difficulty-intermediate { background: #fef3c7; color: #92400e; }
+        .tt-difficulty-advanced { background: #ede9fe; color: #5b21b6; }
+
         </style>
         """,
         unsafe_allow_html=True,
+    )
+    # Inject JS via same-origin iframe to directly remove the broken sidebar
+    # toggle button from the parent document. CSS cannot win against Streamlit's
+    # Emotion CSS-in-JS which injects after us. JS DOM manipulation always wins.
+    components.html(
+        """
+        <script>
+        (function () {
+            var ICON_TEXTS = [
+                "keyboard_double_arrow_right",
+                "keyboard_double_arrow_left",
+                "keyboard_arrow_right",
+                "keyboard_arrow_left",
+                "keyboard_arrow_down",
+                "keyboard_arrow_up",
+                "expand_more",
+                "expand_less",
+                "chevron_right",
+                "chevron_left",
+                "menu",
+            ];
+
+            function hideIconElements(doc) {
+                // 1. Hide by data-testid (Streamlit sidebar toggle)
+                var toggle = doc.querySelector('[data-testid="collapsedControl"]');
+                if (toggle) toggle.style.setProperty("display", "none", "important");
+
+                // 2. Hide any span/button whose trimmed text is exactly an icon name
+                doc.querySelectorAll("span, button").forEach(function (el) {
+                    var txt = (el.textContent || "").trim();
+                    if (ICON_TEXTS.indexOf(txt) !== -1) {
+                        el.style.setProperty("display", "none", "important");
+                        // Also hide the parent button if the span is inside one
+                        var parent = el.parentElement;
+                        if (parent && (parent.tagName === "BUTTON" || parent.getAttribute("role") === "button")) {
+                            parent.style.setProperty("display", "none", "important");
+                        }
+                    }
+                });
+            }
+
+            var doc = window.parent.document;
+            hideIconElements(doc);
+
+            // Keep hiding on every DOM mutation (Streamlit re-renders frequently)
+            var observer = new MutationObserver(function () { hideIconElements(doc); });
+            observer.observe(doc.body, { childList: true, subtree: true });
+        })();
+        </script>
+        """,
+        height=0,
+        scrolling=False,
     )
 
 
@@ -766,38 +957,62 @@ def render_sidebar(db_path: Path, passed_topic_keys: set[str]) -> None:
         st.divider()
         st.caption("LESSONS")
 
-        for topic in TOPICS:
-            unlocked = is_topic_unlocked(topic.key, passed_topic_keys)
-            completed = topic.key in passed_topic_keys
-            item = progress.get(topic.key)
-            viewed = bool(item and item.viewed)
-            topic_icon = TOPIC_ICONS.get(topic.key, "")
+        # Initialise which units are open (all collapsed by default)
+        if "sidebar_open_units" not in st.session_state:
+            st.session_state.sidebar_open_units = set()
 
-            if not unlocked:
-                state_icon = "🔒"
-                _, prereq_title = TOPIC_PREREQUISITES.get(topic.key, ("", "previous topic"))
-                lock_help: str | None = f"Complete {prereq_title} first to unlock this lesson."
-            elif completed:
-                state_icon = "✓"
-                lock_help = None
-            elif viewed:
-                state_icon = "◉"
-                lock_help = None
-            else:
-                state_icon = "○"
-                lock_help = None
+        for unit_name, topic_keys in UNIT_STRUCTURE.items():
+            unit_completed = sum(1 for key in topic_keys if key in passed_topic_keys)
+            is_open = unit_name in st.session_state.sidebar_open_units
+            arrow = "▼" if is_open else "▶"
+            unit_label = f"{arrow}  {unit_name}  {unit_completed}/{len(topic_keys)}"
 
-            is_active = st.session_state.get("selected_topic") == topic.key
+            # Unit header button — toggling open/close without page rerun loss
+            st.markdown(
+                f'<div style="margin-bottom:2px">',
+                unsafe_allow_html=True,
+            )
             if st.button(
-                f"{state_icon}  {topic_icon}  {topic.title}",
-                key=f"nav_{topic.key}",
+                unit_label,
+                key=f"unit_{unit_name}",
                 use_container_width=True,
-                disabled=not unlocked,
-                type="primary" if is_active else "secondary",
-                help=lock_help,
             ):
-                st.session_state.selected_topic = topic.key
+                if is_open:
+                    st.session_state.sidebar_open_units.discard(unit_name)
+                else:
+                    st.session_state.sidebar_open_units.add(unit_name)
                 st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            if not is_open:
+                continue
+
+            for topic_key in topic_keys:
+                topic = next((t for t in TOPICS if t.key == topic_key), None)
+                if not topic:
+                    continue
+
+                completed = topic_key in passed_topic_keys
+                item = progress.get(topic_key)
+                viewed = bool(item and item.viewed)
+                topic_icon = TOPIC_ICONS.get(topic_key, "")
+
+                if completed:
+                    state_icon = "✓"
+                elif viewed:
+                    state_icon = "◉"
+                else:
+                    state_icon = "○"
+
+                is_active = st.session_state.get("selected_topic") == topic_key
+                if st.button(
+                    f"  {state_icon}  {topic_icon}  {topic.title}",
+                    key=f"nav_{topic_key}",
+                    use_container_width=True,
+                    type="primary" if is_active else "secondary",
+                ):
+                    st.session_state.selected_topic = topic_key
+                    st.rerun()
 
 
 def _translate_terminal_error(error: str) -> str | None:
@@ -907,16 +1122,12 @@ def _render_progress_stepper(topic_key: str, passed_topic_keys: set[str]) -> Non
     for i, topic in enumerate(TOPICS):
         is_completed = topic.key in passed_topic_keys
         is_active = topic.key == topic_key
-        is_locked = not is_topic_unlocked(topic.key, passed_topic_keys)
 
         if is_completed:
             state = "completed"
             dot_content = "✓"
         elif is_active:
             state = "active"
-            dot_content = ""
-        elif is_locked:
-            state = "locked"
             dot_content = ""
         else:
             state = ""
@@ -1039,6 +1250,8 @@ def render_lesson(topic_key: str, db_path: Path, passed_topic_keys: set[str]) ->
     total_lessons = len(TOPICS)
     progress_pct = int((lesson_num / total_lessons) * 100)
     topic_icon = TOPIC_ICONS.get(topic.key, "")
+    difficulty = get_topic_difficulty(topic.key)
+    difficulty_css = difficulty.lower()
 
     is_completed = latest_submission is not None and latest_submission.challenge_passed
 
@@ -1047,7 +1260,9 @@ def render_lesson(topic_key: str, db_path: Path, passed_topic_keys: set[str]) ->
     st.markdown(
         html_panel(
             "techtales-topic-card",
-            f'<h2>{topic_icon}  {escape(topic.title)}</h2>'
+            f'<h2>{topic_icon}  {escape(topic.title)}'
+            f'<span class="tt-difficulty-badge tt-difficulty-{difficulty_css}">{difficulty}</span>'
+            f'</h2>'
             f'<p class="topic-summary">{escape(topic.summary)}</p>'
             f'<div class="techtales-lesson-meta">'
             f'<span class="techtales-lesson-badge">Lesson {lesson_num} of {total_lessons}</span>'
@@ -1145,10 +1360,6 @@ def main() -> None:
     render_sidebar(db_path, passed_topic_keys)
 
     selected_topic_key = st.session_state.selected_topic
-    if not is_topic_unlocked(selected_topic_key, passed_topic_keys):
-        render_locked_topic(selected_topic_key)
-        return
-
     render_lesson(selected_topic_key, db_path, passed_topic_keys)
 
 
