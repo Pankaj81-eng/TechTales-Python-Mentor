@@ -1,300 +1,212 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-import sqlite3
+import os
+from datetime import date, timedelta, datetime, timezone
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+from supabase import create_client, Client
 
 from techtales.models import Progress, Submission
 
 
-DEFAULT_DB_PATH = Path("data/techtales.db")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 
 
-def connect(db_path: Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(db_path)
-    connection.row_factory = sqlite3.Row
-    return connection
+def get_anon_client() -> Client:
+    """Anonymous client — used only for auth (login / sign-up)."""
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-def initialize_database(db_path: Path = DEFAULT_DB_PATH) -> None:
-    with connect(db_path) as connection:
-        connection.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS progress (
-                topic_key TEXT PRIMARY KEY,
-                viewed INTEGER NOT NULL DEFAULT 0,
-                completed INTEGER NOT NULL DEFAULT 0,
-                viewed_at TEXT,
-                completed_at TEXT,
-                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS submissions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                topic_key TEXT NOT NULL,
-                code TEXT NOT NULL,
-                evaluator_status TEXT NOT NULL,
-                evaluator_message TEXT NOT NULL,
-                challenge_passed INTEGER NOT NULL DEFAULT 0,
-                validation_details TEXT,
-                xp_awarded INTEGER NOT NULL DEFAULT 0,
-                stdout TEXT NOT NULL DEFAULT '',
-                runtime_error TEXT,
-                submitted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS learner_stats (
-                id INTEGER PRIMARY KEY CHECK (id = 1),
-                xp INTEGER NOT NULL DEFAULT 0,
-                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_submissions_topic_submitted
-                ON submissions(topic_key, submitted_at DESC);
-
-            INSERT OR IGNORE INTO learner_stats (id, xp)
-            VALUES (1, 0);
-            """
-        )
-        _ensure_column(connection, "submissions", "challenge_passed", "INTEGER NOT NULL DEFAULT 0")
-        _ensure_column(connection, "submissions", "validation_details", "TEXT")
-        _ensure_column(connection, "submissions", "xp_awarded", "INTEGER NOT NULL DEFAULT 0")
-        _ensure_column(connection, "submissions", "stdout", "TEXT NOT NULL DEFAULT ''")
-        _ensure_column(connection, "submissions", "runtime_error", "TEXT")
+def make_client(access_token: str) -> Client:
+    """Authenticated client — PostgREST requests carry the user's JWT for RLS."""
+    client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    client.postgrest.auth(access_token)
+    return client
 
 
-def _ensure_column(connection: sqlite3.Connection, table_name: str, column_name: str, definition: str) -> None:
-    columns = {
-        row["name"]
-        for row in connection.execute(f"PRAGMA table_info({table_name});").fetchall()
-    }
-    if column_name not in columns:
-        connection.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition};")
+def initialize_user(client: Client, user_id: str) -> None:
+    """Create a learner_stats row for a brand-new user; no-op if it exists."""
+    client.table("learner_stats").upsert(
+        {"user_id": user_id, "xp": 0},
+        on_conflict="user_id",
+        ignore_duplicates=True,
+    ).execute()
 
 
-def mark_topic_viewed(db_path: Path, topic_key: str) -> None:
-    with connect(db_path) as connection:
-        connection.execute(
-            """
-            INSERT INTO progress (topic_key, viewed, viewed_at, updated_at)
-            VALUES (?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            ON CONFLICT(topic_key) DO UPDATE SET
-                viewed = 1,
-                viewed_at = COALESCE(progress.viewed_at, CURRENT_TIMESTAMP),
-                updated_at = CURRENT_TIMESTAMP;
-            """,
-            (topic_key,),
-        )
+def mark_topic_viewed(client: Client, user_id: str, topic_key: str) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    existing = client.table("progress").select("viewed_at").eq("topic_key", topic_key).execute()
+
+    if existing.data:
+        if not existing.data[0].get("viewed_at"):
+            client.table("progress").update({"viewed": True, "viewed_at": now}).eq("topic_key", topic_key).execute()
+    else:
+        client.table("progress").insert({
+            "user_id": user_id,
+            "topic_key": topic_key,
+            "viewed": True,
+            "viewed_at": now,
+        }).execute()
 
 
 def save_submission(
-    db_path: Path,
+    client: Client,
+    user_id: str,
     topic_key: str,
     code: str,
     evaluator_status: str,
     evaluator_message: str,
     challenge_passed: bool = False,
-    validation_details: list[dict[str, object]] | None = None,
+    validation_details: list[dict] | None = None,
     stdout: str = "",
     runtime_error: str | None = None,
 ) -> int:
-    with connect(db_path) as connection:
-        existing_pass = connection.execute(
-            """
-            SELECT 1
-            FROM submissions
-            WHERE topic_key = ? AND challenge_passed = 1
-            LIMIT 1;
-            """,
-            (topic_key,),
-        ).fetchone()
-        was_passed = existing_pass is not None
-        xp_awarded = 20 if challenge_passed and not was_passed else 0
+    # Check whether this topic was already passed (XP is awarded only once).
+    existing_pass = client.table("submissions").select("id").eq("topic_key", topic_key).eq("challenge_passed", True).limit(1).execute()
+    was_passed = bool(existing_pass.data)
+    xp_awarded = 20 if challenge_passed and not was_passed else 0
 
-        connection.execute(
-            """
-            INSERT INTO submissions (
-                topic_key,
-                code,
-                evaluator_status,
-                evaluator_message,
-                challenge_passed,
-                validation_details,
-                xp_awarded,
-                stdout,
-                runtime_error
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
-            """,
-            (
-                topic_key,
-                code,
-                evaluator_status,
-                evaluator_message,
-                int(challenge_passed),
-                json.dumps(validation_details or []),
-                xp_awarded,
-                stdout,
-                runtime_error,
-            ),
-        )
-        if challenge_passed:
-            connection.execute(
-                """
-                INSERT INTO progress (topic_key, viewed, completed, viewed_at, completed_at, updated_at)
-                VALUES (?, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                ON CONFLICT(topic_key) DO UPDATE SET
-                    viewed = 1,
-                    completed = 1,
-                    viewed_at = COALESCE(progress.viewed_at, CURRENT_TIMESTAMP),
-                    completed_at = COALESCE(progress.completed_at, CURRENT_TIMESTAMP),
-                    updated_at = CURRENT_TIMESTAMP;
-                """,
-                (topic_key,),
-            )
+    client.table("submissions").insert({
+        "user_id": user_id,
+        "topic_key": topic_key,
+        "code": code,
+        "evaluator_status": evaluator_status,
+        "evaluator_message": evaluator_message,
+        "challenge_passed": challenge_passed,
+        "validation_details": json.dumps(validation_details or []),
+        "xp_awarded": xp_awarded,
+        "stdout": stdout,
+        "runtime_error": runtime_error,
+    }).execute()
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    if challenge_passed:
+        existing_prog = client.table("progress").select("id, viewed_at").eq("topic_key", topic_key).execute()
+        if existing_prog.data:
+            client.table("progress").update({
+                "viewed": True, "completed": True, "completed_at": now,
+            }).eq("topic_key", topic_key).execute()
         else:
-            connection.execute(
-                """
-                INSERT INTO progress (topic_key, viewed, viewed_at, updated_at)
-                VALUES (?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                ON CONFLICT(topic_key) DO UPDATE SET
-                    viewed = 1,
-                    viewed_at = COALESCE(progress.viewed_at, CURRENT_TIMESTAMP),
-                    updated_at = CURRENT_TIMESTAMP;
-                """,
-                (topic_key,),
-            )
+            client.table("progress").insert({
+                "user_id": user_id, "topic_key": topic_key,
+                "viewed": True, "completed": True,
+                "viewed_at": now, "completed_at": now,
+            }).execute()
+    else:
+        existing_prog = client.table("progress").select("id, viewed_at").eq("topic_key", topic_key).execute()
+        if not existing_prog.data:
+            client.table("progress").insert({
+                "user_id": user_id, "topic_key": topic_key,
+                "viewed": True, "viewed_at": now,
+            }).execute()
 
-        if xp_awarded:
-            connection.execute(
-                """
-                UPDATE learner_stats
-                SET xp = xp + ?, updated_at = CURRENT_TIMESTAMP
-                WHERE id = 1;
-                """,
-                (xp_awarded,),
-            )
+    if xp_awarded:
+        stats = client.table("learner_stats").select("xp").eq("user_id", user_id).execute()
+        current_xp = stats.data[0]["xp"] if stats.data else 0
+        client.table("learner_stats").update({
+            "xp": current_xp + xp_awarded,
+            "updated_at": now,
+        }).eq("user_id", user_id).execute()
 
     return xp_awarded
 
 
-def get_progress(db_path: Path) -> dict[str, Progress]:
-    with connect(db_path) as connection:
-        rows = connection.execute(
-            """
-            SELECT topic_key, viewed, completed, viewed_at, completed_at, updated_at
-            FROM progress
-            ORDER BY topic_key;
-            """
-        ).fetchall()
-
+def get_progress(client: Client) -> dict[str, Progress]:
+    result = client.table("progress").select("*").execute()
     return {
         row["topic_key"]: Progress(
             topic_key=row["topic_key"],
             viewed=bool(row["viewed"]),
             completed=bool(row["completed"]),
-            viewed_at=row["viewed_at"],
-            completed_at=row["completed_at"],
-            updated_at=row["updated_at"],
+            viewed_at=row.get("viewed_at"),
+            completed_at=row.get("completed_at"),
+            updated_at=row.get("updated_at") or "",
         )
-        for row in rows
+        for row in (result.data or [])
     }
 
 
-def get_latest_submission(db_path: Path, topic_key: str) -> Submission | None:
-    with connect(db_path) as connection:
-        row = connection.execute(
-            """
-            SELECT
-                id,
-                topic_key,
-                code,
-                evaluator_status,
-                evaluator_message,
-                submitted_at,
-                challenge_passed,
-                validation_details,
-                xp_awarded,
-                stdout,
-                runtime_error
-            FROM submissions
-            WHERE topic_key = ?
-            ORDER BY submitted_at DESC, id DESC
-            LIMIT 1;
-            """,
-            (topic_key,),
-        ).fetchone()
+def get_latest_submission(client: Client, topic_key: str) -> Submission | None:
+    result = (
+        client.table("submissions")
+        .select("*")
+        .eq("topic_key", topic_key)
+        .order("submitted_at", desc=True)
+        .limit(1)
+        .execute()
+    )
 
-    if row is None:
+    if not result.data:
         return None
 
+    row = result.data[0]
     return Submission(
-        id=row["id"],
+        id=row.get("id"),
         topic_key=row["topic_key"],
         code=row["code"],
         evaluator_status=row["evaluator_status"],
         evaluator_message=row["evaluator_message"],
-        submitted_at=row["submitted_at"],
+        submitted_at=row.get("submitted_at") or "",
         challenge_passed=bool(row["challenge_passed"]),
-        validation_details=row["validation_details"],
-        xp_awarded=row["xp_awarded"],
-        stdout=row["stdout"],
-        runtime_error=row["runtime_error"],
+        validation_details=row.get("validation_details"),
+        xp_awarded=row.get("xp_awarded") or 0,
+        stdout=row.get("stdout") or "",
+        runtime_error=row.get("runtime_error"),
     )
 
 
-def get_current_xp(db_path: Path) -> int:
-    with connect(db_path) as connection:
-        row = connection.execute("SELECT xp FROM learner_stats WHERE id = 1;").fetchone()
-    return int(row["xp"]) if row else 0
+def get_current_xp(client: Client) -> int:
+    result = client.table("learner_stats").select("xp").execute()
+    return int(result.data[0]["xp"]) if result.data else 0
 
 
-def get_passed_topic_keys(db_path: Path) -> set[str]:
-    with connect(db_path) as connection:
-        rows = connection.execute(
-            """
-            SELECT DISTINCT topic_key
-            FROM submissions
-            WHERE challenge_passed = 1;
-            """
-        ).fetchall()
-    return {row["topic_key"] for row in rows}
+def get_passed_topic_keys(client: Client) -> set[str]:
+    result = (
+        client.table("submissions")
+        .select("topic_key")
+        .eq("challenge_passed", True)
+        .execute()
+    )
+    return {row["topic_key"] for row in (result.data or [])}
 
 
-def get_streak(db_path: Path) -> tuple[int, int]:
-    """Returns (current_streak_days, longest_streak_days)."""
-    from datetime import date, timedelta
+def get_streak(client: Client) -> tuple[int, int]:
+    result = client.table("submissions").select("submitted_at").execute()
 
-    with connect(db_path) as connection:
-        rows = connection.execute(
-            "SELECT DISTINCT date(submitted_at) AS day FROM submissions ORDER BY day DESC;"
-        ).fetchall()
-
-    if not rows:
+    if not result.data:
         return 0, 0
 
-    days_desc = [date.fromisoformat(row["day"]) for row in rows]
+    days = sorted(
+        {date.fromisoformat(row["submitted_at"][:10]) for row in result.data},
+        reverse=True,
+    )
     today = date.today()
 
     current = 0
-    if days_desc[0] >= today - timedelta(days=1):
-        expected = days_desc[0]
-        for day in days_desc:
+    if days and days[0] >= today - timedelta(days=1):
+        expected = days[0]
+        for day in days:
             if day == expected:
                 current += 1
                 expected -= timedelta(days=1)
             else:
                 break
 
-    days_asc = sorted(days_desc)
-    longest = 1
+    days_asc = sorted(days)
+    longest = 1 if days_asc else 0
     run = 1
     for i in range(1, len(days_asc)):
         if days_asc[i] - days_asc[i - 1] == timedelta(days=1):
             run += 1
-            if run > longest:
-                longest = run
+            longest = max(longest, run)
         else:
             run = 1
 

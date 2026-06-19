@@ -51,7 +51,7 @@ class Progress:
 
 @dataclass(frozen=True)
 class Submission:
-    id: int
+    id: str | None
     topic_key: str
     code: str
     evaluator_status: str
