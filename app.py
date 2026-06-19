@@ -2,20 +2,20 @@ from __future__ import annotations
 
 import json
 from html import escape
-from pathlib import Path
 
 import streamlit as st
 import streamlit.components.v1 as components
 
 from techtales.content import TOPICS, get_topic
 from techtales.db import (
-    DEFAULT_DB_PATH,
+    get_anon_client,
+    make_client,
     get_current_xp,
     get_latest_submission,
     get_passed_topic_keys,
     get_progress,
     get_streak,
-    initialize_database,
+    initialize_user,
     mark_topic_viewed,
     save_submission,
 )
@@ -913,12 +913,86 @@ def html_panel(css_class: str, content: str) -> str:
     return f'<div class="{css_class}">{content}</div>'
 
 
-def render_sidebar(db_path: Path, passed_topic_keys: set[str]) -> None:
-    progress = get_progress(db_path)
+def _is_authenticated() -> bool:
+    return "supabase_session" in st.session_state
+
+
+def _handle_login(email: str, password: str) -> None:
+    try:
+        anon = get_anon_client()
+        resp = anon.auth.sign_in_with_password({"email": email, "password": password})
+        st.session_state.supabase_session = {
+            "access_token": resp.session.access_token,
+            "refresh_token": resp.session.refresh_token,
+            "user_id": resp.user.id,
+            "user_email": resp.user.email,
+        }
+        st.session_state.supabase_client = make_client(resp.session.access_token)
+        st.rerun()
+    except Exception as exc:
+        st.error(f"Login failed: {exc}")
+
+
+def _handle_signup(email: str, password: str) -> None:
+    try:
+        anon = get_anon_client()
+        resp = anon.auth.sign_up({"email": email, "password": password})
+        if resp.session:
+            st.session_state.supabase_session = {
+                "access_token": resp.session.access_token,
+                "refresh_token": resp.session.refresh_token,
+                "user_id": resp.user.id,
+                "user_email": resp.user.email,
+            }
+            st.session_state.supabase_client = make_client(resp.session.access_token)
+            st.rerun()
+        else:
+            st.success("Account created! Check your email to confirm, then log in.")
+    except Exception as exc:
+        st.error(f"Sign-up failed: {exc}")
+
+
+def render_auth_page() -> None:
+    st.markdown(
+        """
+        <div style="text-align:center;padding:3rem 0 1.5rem">
+            <div style="font-size:2rem;font-weight:800;color:#1e1b4b;font-family:Inter,sans-serif;letter-spacing:-0.02em">TechTales</div>
+            <div style="font-size:0.75rem;font-weight:700;color:#6366f1;letter-spacing:0.1em;text-transform:uppercase;font-family:Inter,sans-serif;margin-top:0.2rem">Python Mentor</div>
+            <div style="font-size:0.92rem;color:#6b7280;margin-top:0.6rem;font-family:Inter,sans-serif">Learn Python through interactive lessons and challenges</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    _, col, _ = st.columns([1, 1.4, 1])
+    with col:
+        tab_login, tab_signup = st.tabs(["Log In", "Sign Up"])
+
+        with tab_login:
+            email = st.text_input("Email", key="login_email", placeholder="you@example.com")
+            password = st.text_input("Password", type="password", key="login_password")
+            if st.button("Log In", type="primary", use_container_width=True, key="login_btn"):
+                if email and password:
+                    _handle_login(email, password)
+                else:
+                    st.warning("Enter your email and password.")
+
+        with tab_signup:
+            email = st.text_input("Email", key="signup_email", placeholder="you@example.com")
+            password = st.text_input("Password (min 6 characters)", type="password", key="signup_password")
+            if st.button("Create Account", type="primary", use_container_width=True, key="signup_btn"):
+                if email and len(password) >= 6:
+                    _handle_signup(email, password)
+                else:
+                    st.warning("Enter a valid email and a password of at least 6 characters.")
+
+
+def render_sidebar(client, user_id: str, passed_topic_keys: set[str], user_email: str = "") -> None:
+    progress = get_progress(client)
     completed_count = len(passed_topic_keys)
-    current_xp = get_current_xp(db_path)
+    current_xp = get_current_xp(client)
     level, level_xp, level_to_next = get_level(current_xp)
-    current_streak, longest_streak = get_streak(db_path)
+    current_streak, longest_streak = get_streak(client)
 
     with st.sidebar:
         st.markdown(
@@ -928,6 +1002,17 @@ def render_sidebar(db_path: Path, passed_topic_keys: set[str]) -> None:
             '</div>',
             unsafe_allow_html=True,
         )
+
+        if user_email:
+            st.markdown(
+                f'<div style="font-size:0.68rem;color:#818cf8;text-align:center;margin-bottom:0.3rem;font-family:Inter,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{user_email}</div>',
+                unsafe_allow_html=True,
+            )
+        if st.button("Log Out", use_container_width=True, key="logout_btn"):
+            for k in ["supabase_session", "supabase_client", "selected_topic", "sidebar_open_units"]:
+                st.session_state.pop(k, None)
+            st.rerun()
+
         st.divider()
 
         xp_col, done_col = st.columns(2)
@@ -1240,10 +1325,10 @@ def render_locked_topic(topic_key: str) -> None:
     )
 
 
-def render_lesson(topic_key: str, db_path: Path, passed_topic_keys: set[str]) -> None:
+def render_lesson(topic_key: str, client, user_id: str, passed_topic_keys: set[str]) -> None:
     topic = get_topic(topic_key)
-    mark_topic_viewed(db_path, topic.key)
-    latest_submission = get_latest_submission(db_path, topic.key)
+    mark_topic_viewed(client, user_id, topic.key)
+    latest_submission = get_latest_submission(client, topic.key)
 
     topic_index = next((i for i, t in enumerate(TOPICS) if t.key == topic.key), 0)
     lesson_num = topic_index + 1
@@ -1317,7 +1402,8 @@ def render_lesson(topic_key: str, db_path: Path, passed_topic_keys: set[str]) ->
                     for r in validation.requirements
                 ]
                 save_submission(
-                    db_path=db_path,
+                    client=client,
+                    user_id=user_id,
                     topic_key=topic.key,
                     code=code,
                     evaluator_status=validation.status,
@@ -1348,19 +1434,27 @@ def render_lesson(topic_key: str, db_path: Path, passed_topic_keys: set[str]) ->
 
 
 def main() -> None:
-    db_path = DEFAULT_DB_PATH
-    initialize_database(db_path)
     apply_theme()
 
-    passed_topic_keys = get_passed_topic_keys(db_path)
+    if not _is_authenticated():
+        render_auth_page()
+        return
+
+    session = st.session_state.supabase_session
+    client = st.session_state.supabase_client
+    user_id = session["user_id"]
+    user_email = session["user_email"]
+
+    initialize_user(client, user_id)
+    passed_topic_keys = get_passed_topic_keys(client)
 
     if "selected_topic" not in st.session_state:
         st.session_state.selected_topic = TOPICS[0].key
 
-    render_sidebar(db_path, passed_topic_keys)
+    render_sidebar(client, user_id, passed_topic_keys, user_email)
 
     selected_topic_key = st.session_state.selected_topic
-    render_lesson(selected_topic_key, db_path, passed_topic_keys)
+    render_lesson(selected_topic_key, client, user_id, passed_topic_keys)
 
 
 if __name__ == "__main__":
