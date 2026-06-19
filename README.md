@@ -6,8 +6,7 @@ An interactive Python learning platform built for absolute beginners. Learn Pyth
 
 ## Screenshot
 
-<!-- Replace this image URL after uploading a fresh screenshot to GitHub -->
-<img width="1884" height="964" alt="TechTales Python Mentor — lesson view showing sidebar, progress stepper, difficulty badge, lesson content, and challenge panel" src="https://github.com/user-attachments/assets/267b4188-5acb-4f6f-9410-f55b1b5c1ff2" />
+<img width="2940" height="1912" alt="image" src="https://github.com/user-attachments/assets/7b98dd00-0573-4416-b5c7-0c448f83227e" />
 
 ---
 
