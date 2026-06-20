@@ -1066,6 +1066,18 @@ def render_sidebar(client, user_id: str | None, passed_topic_keys: set[str], use
                 unsafe_allow_html=True,
             )
 
+        if user_email == _ADMIN_EMAIL:
+            st.divider()
+            is_stats = st.session_state.get("selected_topic") == "__stats__"
+            if st.button(
+                "📊 Stats",
+                key="nav_stats",
+                use_container_width=True,
+                type="primary" if is_stats else "secondary",
+            ):
+                st.session_state.selected_topic = "__stats__"
+                st.rerun()
+
         st.divider()
         st.caption("LESSONS")
 
@@ -1339,6 +1351,49 @@ def render_results_panel(topic_key: str, submission: object | None) -> None:
     st.markdown("".join(sections_html), unsafe_allow_html=True)
 
 
+_ADMIN_EMAIL = "pankajverma.mca@gmail.com"
+
+
+def render_stats_page(client) -> None:
+    st.markdown(
+        '<h2 style="color:#1e1b4b;font-family:Inter,sans-serif;margin-bottom:1.2rem">📊 Admin Stats</h2>',
+        unsafe_allow_html=True,
+    )
+    try:
+        result = client.rpc("get_visitor_stats").execute()
+        s = result.data
+    except Exception as exc:
+        st.error(f"Could not load stats: {exc}")
+        return
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Visitors today", s.get("visits_today", 0))
+    c2.metric("Visitors this week", s.get("visits_this_week", 0))
+    c3.metric("All-time visitors", s.get("total_visits", 0))
+
+    c4, c5, c6 = st.columns(3)
+    c4.metric("Registered users", s.get("total_users", 0))
+    c5.metric("Total submissions", s.get("total_submissions", 0))
+    c6.metric("Challenges passed", s.get("challenges_passed", 0))
+
+    daily = s.get("daily_visits") or []
+    if daily:
+        st.subheader("Daily visitors — last 14 days")
+        import pandas as pd
+        df = pd.DataFrame(daily)
+        df["day"] = pd.to_datetime(df["day"])
+        df = df.set_index("day")
+        st.bar_chart(df["visits"])
+
+    top = s.get("top_lessons") or []
+    if top:
+        st.subheader("Most attempted lessons")
+        import pandas as pd
+        df2 = pd.DataFrame(top)[["topic_key", "attempts", "passes"]]
+        df2.columns = ["Lesson", "Attempts", "Passes"]
+        st.dataframe(df2, use_container_width=True, hide_index=True)
+
+
 def render_locked_topic(topic_key: str) -> None:
     topic = get_topic(topic_key)
     _, prereq_title = TOPIC_PREREQUISITES.get(topic_key, ("", "the previous topic"))
@@ -1524,7 +1579,11 @@ def main() -> None:
     render_sidebar(client, user_id, passed_topic_keys, user_email)
 
     selected_topic_key = st.session_state.selected_topic
-    render_lesson(selected_topic_key, client, user_id, passed_topic_keys)
+
+    if selected_topic_key == "__stats__" and user_email == _ADMIN_EMAIL:
+        render_stats_page(client)
+    else:
+        render_lesson(selected_topic_key, client, user_id, passed_topic_keys)
 
 
 if __name__ == "__main__":
