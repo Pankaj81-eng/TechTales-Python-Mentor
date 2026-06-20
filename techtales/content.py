@@ -31,8 +31,7 @@ This is the traditional first program every programmer writes. One line is enoug
             pass_message="You did it. You have written and run a complete Python program. That is exactly how every great developer starts.",
             hints=(
                 ("A print() statement is used", 'Use print() to send a message to the screen. Try: print("Hello, World!")'),
-                ('Output includes "Hello"', 'Your program ran, but the output needs the word Hello. Try: print("Hello, World!")'),
-                ('Output includes "World"', 'Almost! Your output has Hello but needs World too. Try: print("Hello, World!")'),
+                ("Your program runs and prints output", 'Make sure your program runs without errors and prints something. Try: print("Hello, World!")'),
             ),
         ),
         expected_output="Hello, World!",

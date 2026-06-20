@@ -11,7 +11,13 @@ from types import MappingProxyType
 from techtales.models import ExecutionResult
 
 
-EXECUTION_TIMEOUT_SECONDS = 2
+# Budget for the learner's code itself, measured only after the sandbox
+# interpreter has finished booting (see execute_user_code).
+EXECUTION_TIMEOUT_SECONDS = 3
+# Separate, generous budget for spawning a fresh Python interpreter. On a
+# shared/throttled host (e.g. Streamlit Cloud free tier) a cold spawn can take
+# several seconds — that must not eat into the learner's execution budget.
+STARTUP_TIMEOUT_SECONDS = 15
 MAX_OUTPUT_CHARACTERS = 4000
 
 ALLOWED_BUILTINS = MappingProxyType(
@@ -68,28 +74,49 @@ def execute_user_code(code: str) -> ExecutionResult:
         return ExecutionResult(stdout="", error=safety_error)
 
     ctx = multiprocessing.get_context("spawn")
+    ready_queue = ctx.Queue()
     result_queue = ctx.Queue()
-    process = ctx.Process(target=_run_code_worker, args=(code, result_queue))
+    process = ctx.Process(target=_run_code_worker, args=(code, ready_queue, result_queue))
     process.start()
-    process.join(EXECUTION_TIMEOUT_SECONDS)
 
-    if process.is_alive():
-        process.terminate()
-        process.join(1)
+    # Wait for the spawned interpreter to boot and signal it is about to run the
+    # code. This phase is infrastructure startup, not the learner's program, so
+    # it gets its own generous budget and is excluded from the execution timeout.
+    try:
+        ready_queue.get(timeout=STARTUP_TIMEOUT_SECONDS)
+    except queue.Empty:
+        _shutdown(process)
+        return ExecutionResult(
+            stdout="",
+            error="The sandbox took too long to start. Please run your code again.",
+        )
+
+    # Now time ONLY the learner's code. Retrieving the result also waits for the
+    # process to finish — using get(timeout) instead of join + get_nowait avoids
+    # a race where the queue's feeder thread hasn't flushed the payload yet.
+    try:
+        payload = result_queue.get(timeout=EXECUTION_TIMEOUT_SECONDS)
+    except queue.Empty:
+        _shutdown(process)
         return ExecutionResult(
             stdout="",
             error="The program took too long to finish. Check for an infinite loop or code that never stops.",
         )
 
-    try:
-        payload = result_queue.get_nowait()
-    except queue.Empty:
-        return ExecutionResult(stdout="", error="The program stopped before returning output.")
+    _shutdown(process)
 
     return ExecutionResult(
         stdout=payload.get("stdout", "")[:MAX_OUTPUT_CHARACTERS],
         error=payload.get("error"),
     )
+
+
+def _shutdown(process: multiprocessing.Process) -> None:
+    """Reap the worker, escalating from a clean join to terminate if needed."""
+    process.join(1)
+    if process.is_alive():
+        process.terminate()
+        process.join(1)
 
 
 def _validate_safe_ast(code: str) -> str | None:
@@ -109,7 +136,16 @@ def _validate_safe_ast(code: str) -> str | None:
     return None
 
 
-def _run_code_worker(code: str, result_queue: multiprocessing.Queue) -> None:
+def _run_code_worker(
+    code: str,
+    ready_queue: multiprocessing.Queue,
+    result_queue: multiprocessing.Queue,
+) -> None:
+    # Reached only after the fresh interpreter has booted and imported this
+    # module, so this is the right moment to start the execution clock in the
+    # parent. Signal readiness before running any of the learner's code.
+    ready_queue.put("ready")
+
     stdout = io.StringIO()
     # Run in a single namespace (globals == locals) so the code behaves like a
     # normal module: top-level defs are visible to themselves, which is what

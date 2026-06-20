@@ -660,8 +660,7 @@ def validate_write_a_program_challenge(
             passed=False,
             requirements=(
                 RequirementResult("A print() statement is used", False, 'Use print() to send your message to the screen: print("Hello, World!")'),
-                RequirementResult('Output includes "Hello"', False, "Make sure your output contains the word Hello."),
-                RequirementResult('Output includes "World"', False, "Make sure your output contains the word World."),
+                RequirementResult("Your program runs and prints output", False, 'Make sure your program runs without errors and prints something. Try: print("Hello, World!")'),
             ),
             feedback="Python could not read this submission yet. Check the syntax, then try again.",
         )
@@ -673,9 +672,11 @@ def validate_write_a_program_challenge(
         for node in ast.walk(tree)
     )
 
-    stdout = execution_result.stdout if execution_result else ""
-    has_hello = "hello" in stdout.lower()
-    has_world = "world" in stdout.lower()
+    program_runs = (
+        execution_result is not None
+        and execution_result.succeeded
+        and bool(_printed_non_empty_lines(execution_result.stdout))
+    )
 
     requirements = (
         RequirementResult(
@@ -684,14 +685,9 @@ def validate_write_a_program_challenge(
             'Use print() to send a message to the screen, for example: print("Hello, World!")',
         ),
         RequirementResult(
-            'Output includes "Hello"',
-            has_hello,
-            'Your output needs to include the word Hello. Try: print("Hello, World!")',
-        ),
-        RequirementResult(
-            'Output includes "World"',
-            has_world,
-            'Your output needs to include the word World. Try: print("Hello, World!")',
+            "Your program runs and prints output",
+            program_runs,
+            'Run a line like print("Hello, World!") so your program prints something on the screen.',
         ),
     )
     passed = all(r.passed for r in requirements)
