@@ -44,6 +44,11 @@ create index if not exists idx_submissions_user_topic
 create index if not exists idx_progress_user
     on progress (user_id, topic_key);
 
+create table if not exists page_views (
+    id         uuid primary key default gen_random_uuid(),
+    viewed_at  timestamptz not null default now()
+);
+
 -- ── ROW LEVEL SECURITY ────────────────────────────────────────────────────────
 
 alter table progress       enable row level security;
@@ -58,3 +63,10 @@ create policy "Users access own submissions"
 
 create policy "Users access own stats"
     on learner_stats for all using (auth.uid() = user_id);
+
+alter table page_views enable row level security;
+
+-- Anyone (including guests using the anon key) can insert a visit.
+-- No one can read raw rows — query via the Supabase SQL editor only.
+create policy "Anyone can record a visit"
+    on page_views for insert with check (true);

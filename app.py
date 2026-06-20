@@ -1492,8 +1492,18 @@ def render_lesson(topic_key: str, client, user_id: str | None, passed_topic_keys
                 )
 
 
+def _record_visit() -> None:
+    if "visit_recorded" not in st.session_state:
+        st.session_state.visit_recorded = True
+        try:
+            get_anon_client().table("page_views").insert({}).execute()
+        except Exception:
+            pass  # analytics must never crash the app
+
+
 def main() -> None:
     apply_theme()
+    _record_visit()
 
     if _is_authenticated():
         session = st.session_state.supabase_session
