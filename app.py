@@ -1551,7 +1551,10 @@ def _record_visit() -> None:
     if "visit_recorded" not in st.session_state:
         st.session_state.visit_recorded = True
         try:
-            get_anon_client().table("page_views").insert({}).execute()
+            from datetime import datetime, timezone
+            get_anon_client().table("page_views").insert(
+                {"viewed_at": datetime.now(timezone.utc).isoformat()}
+            ).execute()
         except Exception:
             pass  # analytics must never crash the app
 
