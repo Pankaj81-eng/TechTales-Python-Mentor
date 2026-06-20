@@ -1359,6 +1359,18 @@ def render_stats_page(client) -> None:
         '<h2 style="color:#1e1b4b;font-family:Inter,sans-serif;margin-bottom:1.2rem">📊 Admin Stats</h2>',
         unsafe_allow_html=True,
     )
+    # Debug: test the anon insert directly so we can see any error
+    with st.expander("🔧 Debug visitor tracking"):
+        if st.button("Test anon insert now"):
+            try:
+                from datetime import datetime, timezone
+                r = get_anon_client().table("page_views").insert(
+                    {"viewed_at": datetime.now(timezone.utc).isoformat()}
+                ).execute()
+                st.success(f"Insert worked: {r.data}")
+            except Exception as e:
+                st.error(f"Insert failed: {e}")
+
     try:
         result = client.rpc("get_visitor_stats").execute()
         s = result.data
