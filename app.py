@@ -1612,10 +1612,17 @@ def main() -> None:
     selected_topic_key = st.session_state.selected_topic
 
     if selected_topic_key == "__stats__" and user_email == _ADMIN_EMAIL:
+        if st.button("← Back to lessons", key="stats_back"):
+            st.session_state.selected_topic = TOPICS[0].key
+            st.rerun()
         render_stats_page(client)
     else:
         if client is None:
             render_guest_banner()
+        elif user_email == _ADMIN_EMAIL:
+            if st.button("📊 Stats", key="main_stats_btn"):
+                st.session_state.selected_topic = "__stats__"
+                st.rerun()
         render_lesson(selected_topic_key, client, user_id, passed_topic_keys)
 
 
