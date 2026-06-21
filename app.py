@@ -845,6 +845,30 @@ def apply_theme() -> None:
         .tt-difficulty-intermediate { background: #fef3c7; color: #92400e; }
         .tt-difficulty-advanced { background: #ede9fe; color: #5b21b6; }
 
+        /* ── TOPIC GRID VIEW ────────────────────────── */
+        .tt-unit-section {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            margin: 1.4rem 0 0.65rem;
+            padding-bottom: 0.45rem;
+            border-bottom: 2px solid #e0e7ff;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .tt-unit-title {
+            font-weight: 700;
+            color: #1e1b4b;
+            font-size: 0.95rem;
+        }
+
+        .tt-unit-count {
+            margin-left: auto;
+            color: #6b7280;
+            font-size: 0.76rem;
+            font-weight: 600;
+        }
+
         </style>
         """,
         unsafe_allow_html=True,
@@ -1077,6 +1101,17 @@ def render_sidebar(client, user_id: str | None, passed_topic_keys: set[str], use
             ):
                 st.session_state.selected_topic = "__stats__"
                 st.rerun()
+
+        st.divider()
+        is_home = st.session_state.get("selected_topic") == "__home__"
+        if st.button(
+            "📚 Browse Lessons",
+            key="nav_browse",
+            use_container_width=True,
+            type="primary" if is_home else "secondary",
+        ):
+            st.session_state.selected_topic = "__home__"
+            st.rerun()
 
         st.divider()
         st.caption("LESSONS")
@@ -1427,21 +1462,25 @@ def render_lesson(topic_key: str, client, user_id: str | None, passed_topic_keys
 
     is_completed = latest_submission is not None and latest_submission.challenge_passed
 
+    if st.button("← All Lessons", key=f"back_home_{topic_key}"):
+        st.session_state.selected_topic = "__home__"
+        st.rerun()
+
     _render_progress_stepper(topic_key, passed_topic_keys)
 
     st.markdown(
         html_panel(
             "techtales-topic-card",
-            f'<h2>{topic_icon}  {escape(topic.title)}'
-            f'<span class="tt-difficulty-badge tt-difficulty-{difficulty_css}">{difficulty}</span>'
-            f'</h2>'
-            f'<p class="topic-summary">{escape(topic.summary)}</p>'
-            f'<div class="techtales-lesson-meta">'
+            f'<div class="techtales-lesson-meta" style="margin-bottom:0.7rem">'
             f'<span class="techtales-lesson-badge">Lesson {lesson_num} of {total_lessons}</span>'
             f'<div class="techtales-hero-progress-bar">'
             f'<div class="techtales-hero-progress-fill" style="width: {progress_pct}%;"></div>'
             f'</div>'
-            f'</div>',
+            f'</div>'
+            f'<h2>{topic_icon}  {escape(topic.title)}'
+            f'<span class="tt-difficulty-badge tt-difficulty-{difficulty_css}">{difficulty}</span>'
+            f'</h2>'
+            f'<p class="topic-summary">{escape(topic.summary)}</p>',
         ),
         unsafe_allow_html=True,
     )
@@ -1547,6 +1586,58 @@ def render_lesson(topic_key: str, client, user_id: str | None, passed_topic_keys
                 )
 
 
+def render_topic_grid(passed_topic_keys: set[str]) -> None:
+    total = len(TOPICS)
+    done = len(passed_topic_keys)
+
+    st.markdown(
+        f'<h2 style="color:#1e1b4b;font-family:Inter,sans-serif;margin:0 0 0.25rem">📚 All Lessons</h2>'
+        f'<p style="color:#6b7280;font-family:Inter,sans-serif;font-size:0.88rem;margin:0 0 0.65rem">'
+        f'{done} of {total} lessons completed</p>',
+        unsafe_allow_html=True,
+    )
+    st.progress(done / total if total else 0)
+
+    COLS = 5
+    for unit_name, topic_keys in UNIT_STRUCTURE.items():
+        unit_done = sum(1 for k in topic_keys if k in passed_topic_keys)
+        diff_label = _UNIT_DIFFICULTY.get(unit_name, "Beginner")
+        diff_css = diff_label.lower()
+
+        st.markdown(
+            f'<div class="tt-unit-section">'
+            f'<span class="tt-unit-title">{unit_name}</span>'
+            f'<span class="tt-difficulty-badge tt-difficulty-{diff_css}">{diff_label}</span>'
+            f'<span class="tt-unit-count">{unit_done}/{len(topic_keys)}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+        for row_start in range(0, len(topic_keys), COLS):
+            row_keys = list(topic_keys[row_start:row_start + COLS])
+            cols = st.columns(COLS)
+            for col_idx, topic_key in enumerate(row_keys):
+                topic = next((t for t in TOPICS if t.key == topic_key), None)
+                if not topic:
+                    continue
+
+                icon = TOPIC_ICONS.get(topic_key, "")
+                is_completed = topic_key in passed_topic_keys
+                is_locked = not is_topic_unlocked(topic_key, passed_topic_keys)
+
+                label = f"{icon}  {'✓ ' if is_completed else ''}{topic.title}"
+                with cols[col_idx]:
+                    if st.button(
+                        label,
+                        key=f"grid_{topic_key}",
+                        use_container_width=True,
+                        type="primary" if is_completed else "secondary",
+                        disabled=is_locked,
+                    ):
+                        st.session_state.selected_topic = topic_key
+                        st.rerun()
+
+
 def render_guest_banner() -> None:
     """Compact sign-up bar shown to guests at the top of every page — visible on mobile."""
     with st.expander("✨ Sign up free to save your progress, XP and streaks", expanded=False):
@@ -1605,7 +1696,7 @@ def main() -> None:
         passed_topic_keys = st.session_state.get("guest_passed_topics", set())
 
     if "selected_topic" not in st.session_state:
-        st.session_state.selected_topic = TOPICS[0].key
+        st.session_state.selected_topic = "__home__"
 
     render_sidebar(client, user_id, passed_topic_keys, user_email)
 
@@ -1613,9 +1704,17 @@ def main() -> None:
 
     if selected_topic_key == "__stats__" and user_email == _ADMIN_EMAIL:
         if st.button("← Back to lessons", key="stats_back"):
-            st.session_state.selected_topic = TOPICS[0].key
+            st.session_state.selected_topic = "__home__"
             st.rerun()
         render_stats_page(client)
+    elif selected_topic_key == "__home__":
+        if client is None:
+            render_guest_banner()
+        elif user_email == _ADMIN_EMAIL:
+            if st.button("📊 Stats", key="main_stats_btn"):
+                st.session_state.selected_topic = "__stats__"
+                st.rerun()
+        render_topic_grid(passed_topic_keys)
     else:
         if client is None:
             render_guest_banner()
