@@ -1547,6 +1547,34 @@ def render_lesson(topic_key: str, client, user_id: str | None, passed_topic_keys
                 )
 
 
+def render_guest_banner() -> None:
+    """Compact sign-up bar shown to guests at the top of every page — visible on mobile."""
+    with st.expander("✨ Sign up free to save your progress, XP and streaks", expanded=False):
+        tab_l, tab_s = st.tabs(["Log In", "Sign Up"])
+        with tab_l:
+            col1, col2 = st.columns(2)
+            with col1:
+                b_email = st.text_input("Email", key="b_login_email", placeholder="you@example.com", label_visibility="collapsed")
+            with col2:
+                b_pass = st.text_input("Password", type="password", key="b_login_pass", placeholder="Password", label_visibility="collapsed")
+            if st.button("Log In", type="primary", use_container_width=True, key="b_login_btn"):
+                if b_email and b_pass:
+                    _handle_login(b_email, b_pass)
+                else:
+                    st.warning("Enter your email and password.")
+        with tab_s:
+            col3, col4 = st.columns(2)
+            with col3:
+                b_email2 = st.text_input("Email", key="b_signup_email", placeholder="you@example.com", label_visibility="collapsed")
+            with col4:
+                b_pass2 = st.text_input("Password", type="password", key="b_signup_pass", placeholder="Min 6 characters", label_visibility="collapsed")
+            if st.button("Sign Up Free", type="primary", use_container_width=True, key="b_signup_btn"):
+                if b_email2 and len(b_pass2) >= 6:
+                    _handle_signup(b_email2, b_pass2)
+                else:
+                    st.warning("Enter a valid email and a password of at least 6 characters.")
+
+
 def _record_visit() -> None:
     if "visit_recorded" not in st.session_state:
         st.session_state.visit_recorded = True
@@ -1586,6 +1614,8 @@ def main() -> None:
     if selected_topic_key == "__stats__" and user_email == _ADMIN_EMAIL:
         render_stats_page(client)
     else:
+        if client is None:
+            render_guest_banner()
         render_lesson(selected_topic_key, client, user_id, passed_topic_keys)
 
 
