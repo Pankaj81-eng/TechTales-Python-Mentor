@@ -124,6 +124,47 @@ class ChallengeValidator:
             return validate_inheritance_challenge(submitted_code, execution_result)
         if topic.key == "exercise_class_design":
             return validate_exercise_class_design_challenge(submitted_code, execution_result)
+        # Unit 8 — Advanced Functions
+        if topic.key == "dict_set_comprehensions":
+            return validate_dict_set_comprehensions_challenge(submitted_code, execution_result)
+        if topic.key == "args_kwargs":
+            return validate_args_kwargs_challenge(submitted_code, execution_result)
+        if topic.key == "closures":
+            return validate_closures_challenge(submitted_code, execution_result)
+        if topic.key == "lambda_functions":
+            return validate_lambda_functions_challenge(submitted_code, execution_result)
+        if topic.key == "map_filter":
+            return validate_map_filter_challenge(submitted_code, execution_result)
+        if topic.key == "sorted_key":
+            return validate_sorted_key_challenge(submitted_code, execution_result)
+        if topic.key == "zip_function":
+            return validate_zip_function_challenge(submitted_code, execution_result)
+        if topic.key == "decorators_intro":
+            return validate_decorators_intro_challenge(submitted_code, execution_result)
+        if topic.key == "exercise_functional":
+            return validate_exercise_functional_challenge(submitted_code, execution_result)
+        # Unit 9 — Error Handling
+        if topic.key == "exceptions_intro":
+            return _validate_generic(submitted_code, execution_result)
+        if topic.key == "try_except":
+            return validate_try_except_challenge(submitted_code, execution_result)
+        if topic.key == "multiple_exceptions":
+            return validate_multiple_exceptions_challenge(submitted_code, execution_result)
+        if topic.key == "finally_clause":
+            return validate_finally_clause_challenge(submitted_code, execution_result)
+        if topic.key == "raising_exceptions":
+            return validate_raising_exceptions_challenge(submitted_code, execution_result)
+        if topic.key == "exercise_safe_calculator":
+            return validate_exercise_safe_calculator_challenge(submitted_code, execution_result)
+        # Unit 10 — Generators & Iterators
+        if topic.key == "generators_yield":
+            return validate_generators_yield_challenge(submitted_code, execution_result)
+        if topic.key == "generator_expressions":
+            return validate_generator_expressions_challenge(submitted_code, execution_result)
+        if topic.key == "iterator_protocol":
+            return validate_iterator_protocol_challenge(submitted_code, execution_result)
+        if topic.key == "exercise_custom_range":
+            return validate_exercise_custom_range_challenge(submitted_code, execution_result)
 
         has_code = bool(submitted_code.strip())
         return ValidationResult(
@@ -1959,5 +2000,498 @@ def validate_exercise_class_design_challenge(submitted_code, execution_result=No
         has_init,
         has_multiple_methods,
         instantiated,
+    )
+    return _build(labels, checks)
+
+
+def _validate_generic(submitted_code: str, execution_result: ExecutionResult | None = None) -> ValidationResult:
+    has_code = bool(submitted_code.strip())
+    return ValidationResult(
+        passed=has_code,
+        requirements=(
+            RequirementResult(
+                "Submitted Python code",
+                has_code,
+                "Type a few lines of Python code before submitting.",
+            ),
+        ),
+        feedback="Your work was saved. More detailed checks for this topic will be added soon.",
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Unit 8 — Advanced Functions validators
+# ─────────────────────────────────────────────────────────────────────────────
+
+def validate_dict_set_comprehensions_challenge(submitted_code, execution_result=None):
+    labels = (
+        ("A dict comprehension is used", "Use {key: value for item in collection}: for example {n: n**2 for n in numbers}."),
+        ("A set comprehension is used", "Use {expression for item in collection}: for example {len(w) for w in words}. No colon means set, not dict."),
+        ("Output is printed", "Call print() on both results to show the dict and the set."),
+    )
+    try:
+        tree = ast.parse(submitted_code)
+    except SyntaxError:
+        return _all_failed(labels)
+
+    checks = (
+        any(isinstance(n, ast.DictComp) for n in ast.walk(tree)),
+        any(isinstance(n, ast.SetComp) for n in ast.walk(tree)),
+        _has_output(tree, execution_result),
+    )
+    return _build(labels, checks)
+
+
+def validate_args_kwargs_challenge(submitted_code, execution_result=None):
+    labels = (
+        ("*args is used in the function definition", "Add *args as a parameter: def total(*args): — the star collects all positional arguments into a tuple."),
+        ("The function handles multiple argument counts", "Call the function several times with different numbers of arguments."),
+        ("Output is printed", "Wrap each call in print() so the results appear on screen."),
+    )
+    try:
+        tree = ast.parse(submitted_code)
+    except SyntaxError:
+        return _all_failed(labels)
+
+    has_vararg = any(
+        isinstance(n, ast.FunctionDef) and n.args.vararg is not None
+        for n in ast.walk(tree)
+    )
+    func_names = {fn.name for fn in _function_defs(tree)}
+    call_sites = [
+        n for n in ast.walk(tree)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id in func_names
+    ]
+    has_multiple_calls = len(call_sites) >= 2
+    checks = (
+        has_vararg,
+        has_multiple_calls,
+        _has_output(tree, execution_result),
+    )
+    return _build(labels, checks)
+
+
+def validate_closures_challenge(submitted_code, execution_result=None):
+    labels = (
+        ("A function is returned from another function", "The outer function should end with return inner_function_name — no parentheses, you're returning the function itself."),
+        ("The inner function uses an outer variable", "Inside the inner function, reference the outer parameter so Python closes over it."),
+        ("Output is printed", "Call the returned function and wrap it in print(): print(double(5))."),
+    )
+    try:
+        tree = ast.parse(submitted_code)
+    except SyntaxError:
+        return _all_failed(labels)
+
+    has_nested_func = any(
+        isinstance(child, ast.FunctionDef)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef)
+        for child in ast.walk(node)
+        if child is not node and isinstance(child, ast.FunctionDef)
+    )
+    has_return = any(
+        isinstance(n, ast.Return) and n.value is not None
+        for n in ast.walk(tree)
+    )
+    checks = (
+        has_nested_func,
+        has_return,
+        _has_output(tree, execution_result),
+    )
+    return _build(labels, checks)
+
+
+def validate_lambda_functions_challenge(submitted_code, execution_result=None):
+    labels = (
+        ("A lambda function is defined", "Use the lambda keyword: double = lambda x: x * 2."),
+        ("A second lambda is used", "Write another lambda for a different purpose and call it too."),
+        ("Output is printed", "Wrap each call in print() so the results appear on screen."),
+    )
+    try:
+        tree = ast.parse(submitted_code)
+    except SyntaxError:
+        return _all_failed(labels)
+
+    lambdas = [n for n in ast.walk(tree) if isinstance(n, ast.Lambda)]
+    checks = (
+        len(lambdas) >= 1,
+        len(lambdas) >= 2,
+        _has_output(tree, execution_result),
+    )
+    return _build(labels, checks)
+
+
+def validate_map_filter_challenge(submitted_code, execution_result=None):
+    labels = (
+        ("map() is used", "Call map() with a function and a list: list(map(lambda x: x**2, numbers))."),
+        ("filter() is used", "Call filter() with a test function: list(filter(lambda x: x > 10, squared))."),
+        ("Results are converted to lists and printed", "Wrap both calls in list() and then print() to see the results."),
+    )
+    try:
+        tree = ast.parse(submitted_code)
+    except SyntaxError:
+        return _all_failed(labels)
+
+    checks = (
+        _calls_builtin(tree, "map"),
+        _calls_builtin(tree, "filter"),
+        _has_output(tree, execution_result),
+    )
+    return _build(labels, checks)
+
+
+def validate_sorted_key_challenge(submitted_code, execution_result=None):
+    labels = (
+        ("sorted() is used with key=", "Pass key= to sorted: sorted(words, key=len) sorts by length."),
+        ("A lambda or function is used as key", "Use a lambda for a custom criterion: sorted(words, key=lambda w: w[-1])."),
+        ("A second sort criterion is used", "Apply a different sort or reverse=True for the second result."),
+    )
+    try:
+        tree = ast.parse(submitted_code)
+    except SyntaxError:
+        return _all_failed(labels)
+
+    sorted_calls = [
+        n for n in ast.walk(tree)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "sorted"
+    ]
+    has_sorted = bool(sorted_calls)
+    has_key = any(
+        any(kw.arg == "key" for kw in call.keywords)
+        for call in sorted_calls
+    )
+    checks = (
+        has_sorted,
+        has_key,
+        _has_output(tree, execution_result),
+    )
+    return _build(labels, checks)
+
+
+def validate_zip_function_challenge(submitted_code, execution_result=None):
+    labels = (
+        ("zip() is used", "Use zip() to pair two lists: for name, score in zip(names, scores):."),
+        ("Both lists are paired correctly", "Unpack the pairs in the for loop: for name, score in zip(...)."),
+        ("A dict is created from zip", "Build a dict from the pairs: dict(zip(names, scores))."),
+    )
+    try:
+        tree = ast.parse(submitted_code)
+    except SyntaxError:
+        return _all_failed(labels)
+
+    has_zip = _calls_builtin(tree, "zip")
+    has_for_with_zip = any(
+        isinstance(n, ast.For)
+        and isinstance(n.iter, ast.Call)
+        and isinstance(n.iter.func, ast.Name)
+        and n.iter.func.id == "zip"
+        for n in ast.walk(tree)
+    ) or has_zip
+    has_dict_zip = any(
+        isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Name)
+        and n.func.id == "dict"
+        and any(
+            isinstance(arg, ast.Call) and isinstance(arg.func, ast.Name) and arg.func.id == "zip"
+            for arg in n.args
+        )
+        for n in ast.walk(tree)
+    )
+    checks = (
+        has_zip,
+        has_for_with_zip,
+        has_dict_zip,
+    )
+    return _build(labels, checks)
+
+
+def validate_decorators_intro_challenge(submitted_code, execution_result=None):
+    labels = (
+        ("A decorator function is defined", "Define the outer function that accepts func as a parameter: def announce(func):."),
+        ("It wraps the original function", "Inside the decorator, define a wrapper that calls func(*args, **kwargs)."),
+        ("The @decorator syntax is used", "Apply the decorator with @announce directly above the function definition."),
+        ("Output shows before/after messages", 'Print a message before and after the function call inside the wrapper.'),
+    )
+    try:
+        tree = ast.parse(submitted_code)
+    except SyntaxError:
+        return _all_failed(labels)
+
+    decorated_fns = [
+        n for n in ast.walk(tree)
+        if isinstance(n, ast.FunctionDef) and n.decorator_list
+    ]
+    has_decorator_applied = bool(decorated_fns)
+    has_nested_wrapper = any(
+        isinstance(child, ast.FunctionDef)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef)
+        for child in ast.walk(node)
+        if child is not node and isinstance(child, ast.FunctionDef)
+    )
+    checks = (
+        bool(_function_defs(tree)),
+        has_nested_wrapper,
+        has_decorator_applied,
+        _has_output(tree, execution_result),
+    )
+    return _build(labels, checks)
+
+
+def validate_exercise_functional_challenge(submitted_code, execution_result=None):
+    labels = (
+        ("filter() is used", "Use filter() to keep only the values that meet your threshold: list(filter(lambda x: x > threshold, data))."),
+        ("map() is used on the filtered result", "Transform the filtered list with map(): list(map(lambda x: x * 2, kept))."),
+        ("sorted() orders the final list", "Sort the transformed list: sorted(transformed) or sorted(transformed, reverse=True)."),
+        ("Output is printed", "Print the final result list."),
+    )
+    try:
+        tree = ast.parse(submitted_code)
+    except SyntaxError:
+        return _all_failed(labels)
+
+    checks = (
+        _calls_builtin(tree, "filter"),
+        _calls_builtin(tree, "map"),
+        _calls_builtin(tree, "sorted"),
+        _has_output(tree, execution_result),
+    )
+    return _build(labels, checks)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Unit 9 — Error Handling validators
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _try_nodes(tree: ast.AST) -> list[ast.Try]:
+    return [n for n in ast.walk(tree) if isinstance(n, ast.Try)]
+
+
+def validate_try_except_challenge(submitted_code, execution_result=None):
+    labels = (
+        ("A try block is used", "Wrap the risky code in try: — indent the attempt by 4 spaces."),
+        ("An except block handles the error", "Add except ValueError: at the same indent level as try:."),
+        ("A specific exception type is caught", "Name the exception type: except ValueError: — avoid bare except:."),
+        ("Output shows the error was handled", "The except block should print a friendly message."),
+    )
+    try:
+        tree = ast.parse(submitted_code)
+    except SyntaxError:
+        return _all_failed(labels)
+
+    tries = _try_nodes(tree)
+    has_try = bool(tries)
+    has_handler = any(bool(t.handlers) for t in tries)
+    has_typed_handler = any(
+        h.type is not None
+        for t in tries
+        for h in t.handlers
+    )
+    checks = (
+        has_try,
+        has_handler,
+        has_typed_handler,
+        _has_output(tree, execution_result),
+    )
+    return _build(labels, checks)
+
+
+def validate_multiple_exceptions_challenge(submitted_code, execution_result=None):
+    labels = (
+        ("Multiple except blocks are used", "Add a second except clause: except TypeError: — same indent level as the first except."),
+        ("Each block catches a different exception type", "Give each except a different exception name: ZeroDivisionError, TypeError, ValueError, etc."),
+        ("Output shows which exception was caught", "Print a distinct message in each except block."),
+    )
+    try:
+        tree = ast.parse(submitted_code)
+    except SyntaxError:
+        return _all_failed(labels)
+
+    tries = _try_nodes(tree)
+    handler_count = sum(len(t.handlers) for t in tries)
+    checks = (
+        handler_count >= 2,
+        _has_output(tree, execution_result),
+        _has_output(tree, execution_result),
+    )
+    return _build(labels, checks)
+
+
+def validate_finally_clause_challenge(submitted_code, execution_result=None):
+    labels = (
+        ("A try block is used", "Wrap the risky code in try:."),
+        ("A finally block is used", "Add finally: at the same indent level as try: and except:."),
+        ("Output shows the always-runs message", "The finally block message should appear in every call's output."),
+    )
+    try:
+        tree = ast.parse(submitted_code)
+    except SyntaxError:
+        return _all_failed(labels)
+
+    tries = _try_nodes(tree)
+    has_try = bool(tries)
+    has_finally = any(bool(t.finalbody) for t in tries)
+    checks = (
+        has_try,
+        has_finally,
+        _has_output(tree, execution_result),
+    )
+    return _build(labels, checks)
+
+
+def validate_raising_exceptions_challenge(submitted_code, execution_result=None):
+    labels = (
+        ("raise is used with an exception type", "Use raise ValueError('message') inside an if block."),
+        ("A message is included in the raise", "Pass a descriptive string: raise ValueError(f'Speed cannot be negative: {speed}')."),
+        ("The raised exception is caught", "Wrap the call in try / except ValueError as e: and print the error message."),
+    )
+    try:
+        tree = ast.parse(submitted_code)
+    except SyntaxError:
+        return _all_failed(labels)
+
+    raise_nodes = [n for n in ast.walk(tree) if isinstance(n, ast.Raise)]
+    has_raise = bool(raise_nodes)
+    has_raise_with_msg = any(
+        isinstance(n.exc, ast.Call) and bool(n.exc.args)
+        for n in raise_nodes
+        if n.exc is not None
+    )
+    has_try = bool(_try_nodes(tree))
+    checks = (
+        has_raise,
+        has_raise_with_msg,
+        has_try,
+    )
+    return _build(labels, checks)
+
+
+def validate_exercise_safe_calculator_challenge(submitted_code, execution_result=None):
+    labels = (
+        ("ZeroDivisionError is caught", "Add except ZeroDivisionError: and return a friendly string."),
+        ("TypeError is caught", "Add except TypeError: to handle non-numeric inputs like strings."),
+        ("finally runs every time", "Add finally: print('Done.') — it should print on every call."),
+        ("Results are printed", "Call print(safe_divide(...)) with different inputs to test all cases."),
+    )
+    try:
+        tree = ast.parse(submitted_code)
+    except SyntaxError:
+        return _all_failed(labels)
+
+    tries = _try_nodes(tree)
+    handler_types = [
+        h.type.id if isinstance(h.type, ast.Name) else None
+        for t in tries
+        for h in t.handlers
+    ]
+    has_zero_div = "ZeroDivisionError" in handler_types
+    has_type_err = "TypeError" in handler_types
+    has_finally = any(bool(t.finalbody) for t in tries)
+    checks = (
+        has_zero_div,
+        has_type_err,
+        has_finally,
+        _has_output(tree, execution_result),
+    )
+    return _build(labels, checks)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Unit 10 — Generators & Iterators validators
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _has_yield_in_function(tree: ast.AST) -> bool:
+    for fn in ast.walk(tree):
+        if not isinstance(fn, ast.FunctionDef):
+            continue
+        for child in ast.walk(fn):
+            if isinstance(child, (ast.Yield, ast.YieldFrom)):
+                return True
+    return False
+
+
+def validate_generators_yield_challenge(submitted_code, execution_result=None):
+    labels = (
+        ("yield is used in the function", "Replace return with yield inside a function. The function becomes a generator."),
+        ("Values are retrieved with for or next()", "Loop with for num in gen: or call next(gen) repeatedly to pull values."),
+    )
+    try:
+        tree = ast.parse(submitted_code)
+    except SyntaxError:
+        return _all_failed(labels)
+
+    checks = (
+        _has_yield_in_function(tree),
+        _has_output(tree, execution_result),
+    )
+    return _build(labels, checks)
+
+
+def validate_generator_expressions_challenge(submitted_code, execution_result=None):
+    labels = (
+        ("A generator expression using () is used", "Use parentheses: (x**2 for x in range(1, 11)) — that's a generator, not a list."),
+        ("It is passed to sum() or iterated", "Pass the generator expression directly to sum() or loop over it."),
+    )
+    try:
+        tree = ast.parse(submitted_code)
+    except SyntaxError:
+        return _all_failed(labels)
+
+    checks = (
+        any(isinstance(n, ast.GeneratorExp) for n in ast.walk(tree)),
+        _has_output(tree, execution_result),
+    )
+    return _build(labels, checks)
+
+
+def validate_iterator_protocol_challenge(submitted_code, execution_result=None):
+    labels = (
+        ("iter() is called on the collection", "Call iter() to get an iterator: it = iter(items)."),
+        ("next() retrieves values one at a time", "Call next(it) to get the next value."),
+        ("All items are printed", "Call next() at least three times and print each result."),
+    )
+    try:
+        tree = ast.parse(submitted_code)
+    except SyntaxError:
+        return _all_failed(labels)
+
+    next_calls = [
+        n for n in ast.walk(tree)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "next"
+    ]
+    checks = (
+        _calls_builtin(tree, "iter"),
+        len(next_calls) >= 2,
+        _has_output(tree, execution_result),
+    )
+    return _build(labels, checks)
+
+
+def validate_exercise_custom_range_challenge(submitted_code, execution_result=None):
+    labels = (
+        ("yield is used in the generator function", "Use yield current inside the while loop to produce each value one at a time."),
+        ("A while loop is used inside the generator", "Drive the sequence with a while loop: while current < stop:."),
+        ("The generator is used with a for loop", "Loop over the generator: for n in my_range(...): print(n)."),
+        ("Output is printed", "Print the values produced by the generator."),
+    )
+    try:
+        tree = ast.parse(submitted_code)
+    except SyntaxError:
+        return _all_failed(labels)
+
+    has_yield = _has_yield_in_function(tree)
+    has_while_in_gen = any(
+        isinstance(child, ast.While)
+        for fn in ast.walk(tree)
+        if isinstance(fn, ast.FunctionDef)
+        for child in ast.walk(fn)
+        if child is not fn
+    )
+    has_for_loop = _has_for_loop(tree)
+    checks = (
+        has_yield,
+        has_while_in_gen,
+        has_for_loop,
+        _has_output(tree, execution_result),
     )
     return _build(labels, checks)

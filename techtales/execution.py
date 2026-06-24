@@ -23,22 +23,34 @@ MAX_OUTPUT_CHARACTERS = 4000
 ALLOWED_BUILTINS = MappingProxyType(
     {
         "abs": abs,
+        "all": all,
+        "any": any,
         "bool": bool,
+        "callable": callable,
         "dict": dict,
         "enumerate": enumerate,
+        "filter": filter,
         "float": float,
+        "hasattr": hasattr,
         "int": int,
+        "isinstance": isinstance,
+        "iter": iter,
         "len": len,
         "list": list,
+        "map": map,
         "max": max,
         "min": min,
+        "next": next,
         "print": print,
         "range": range,
+        "repr": repr,
         "round": round,
         "set": set,
+        "sorted": sorted,
         "str": str,
         "sum": sum,
         "tuple": tuple,
+        "zip": zip,
         # type() lets the Data Types lesson report a value's type. Safe here
         # because the classic type()-based escape needs dunder attribute access
         # (e.g. .__subclasses__()), which _validate_safe_ast already blocks.
@@ -60,10 +72,7 @@ BLOCKED_NODES = (
     ast.Global,
     ast.Import,
     ast.ImportFrom,
-    ast.Lambda,
     ast.Nonlocal,
-    ast.Raise,
-    ast.Try,
     ast.With,
 )
 

@@ -83,6 +83,28 @@ TOPIC_PREREQUISITES: dict[str, tuple[str, str]] = {
     "class_attributes": ("class_methods", "Add Methods to a Class"),
     "inheritance": ("class_attributes", "Work with Object Attributes"),
     "exercise_class_design": ("inheritance", "Inheritance — Extend a Class"),
+    # Unit 8 — Advanced Functions
+    "dict_set_comprehensions": ("exercise_class_design", "Exercise: Design a Class"),
+    "args_kwargs": ("dict_set_comprehensions", "Dict & Set Comprehensions"),
+    "closures": ("args_kwargs", "*args and **kwargs"),
+    "lambda_functions": ("closures", "Closures"),
+    "map_filter": ("lambda_functions", "Lambda Functions"),
+    "sorted_key": ("map_filter", "map() and filter()"),
+    "zip_function": ("sorted_key", "Sorting with a Key"),
+    "decorators_intro": ("zip_function", "zip()"),
+    "exercise_functional": ("decorators_intro", "Decorators"),
+    # Unit 9 — Error Handling
+    "exceptions_intro": ("exercise_functional", "Exercise: Functional Toolkit"),
+    "try_except": ("exceptions_intro", "What are Exceptions?"),
+    "multiple_exceptions": ("try_except", "try / except"),
+    "finally_clause": ("multiple_exceptions", "Multiple Exception Types"),
+    "raising_exceptions": ("finally_clause", "finally and else"),
+    "exercise_safe_calculator": ("raising_exceptions", "Raising Exceptions"),
+    # Unit 10 — Generators & Iterators
+    "generators_yield": ("exercise_safe_calculator", "Exercise: Safe Calculator"),
+    "generator_expressions": ("generators_yield", "Generators with yield"),
+    "iterator_protocol": ("generator_expressions", "Generator Expressions"),
+    "exercise_custom_range": ("iterator_protocol", "The Iterator Protocol"),
 }
 
 TOPIC_ICONS: dict[str, str] = {
@@ -143,6 +165,28 @@ TOPIC_ICONS: dict[str, str] = {
     "class_attributes": "🏷️",
     "inheritance": "🌳",
     "exercise_class_design": "💎",
+    # Unit 8 — Advanced Functions
+    "dict_set_comprehensions": "🗃️",
+    "args_kwargs": "📥",
+    "closures": "🧲",
+    "lambda_functions": "λ",
+    "map_filter": "🔭",
+    "sorted_key": "🔤",
+    "zip_function": "🤐",
+    "decorators_intro": "🎀",
+    "exercise_functional": "🏭",
+    # Unit 9 — Error Handling
+    "exceptions_intro": "💥",
+    "try_except": "🛡️",
+    "multiple_exceptions": "🎭",
+    "finally_clause": "🔚",
+    "raising_exceptions": "🚨",
+    "exercise_safe_calculator": "🧮",
+    # Unit 10 — Generators & Iterators
+    "generators_yield": "🔋",
+    "generator_expressions": "🌊",
+    "iterator_protocol": "🔗",
+    "exercise_custom_range": "🎯",
 }
 
 # Unit structure: groups topics by learning unit
@@ -175,6 +219,17 @@ UNIT_STRUCTURE: dict[str, tuple[str, ...]] = {
         "classes", "class_definition", "instance_creation", "class_methods",
         "class_attributes", "inheritance", "exercise_class_design",
     ),
+    "🔧 Advanced Functions": (
+        "dict_set_comprehensions", "args_kwargs", "closures", "lambda_functions",
+        "map_filter", "sorted_key", "zip_function", "decorators_intro", "exercise_functional",
+    ),
+    "🛡️ Error Handling": (
+        "exceptions_intro", "try_except", "multiple_exceptions",
+        "finally_clause", "raising_exceptions", "exercise_safe_calculator",
+    ),
+    "🔋 Generators & Iterators": (
+        "generators_yield", "generator_expressions", "iterator_protocol", "exercise_custom_range",
+    ),
 }
 
 _UNIT_DIFFICULTY: dict[str, str] = {
@@ -185,6 +240,9 @@ _UNIT_DIFFICULTY: dict[str, str] = {
     "📋 Collections": "Intermediate",
     "⚙️ Functions": "Advanced",
     "🏗️ OOP Concepts": "Advanced",
+    "🔧 Advanced Functions": "Advanced",
+    "🛡️ Error Handling": "Advanced",
+    "🔋 Generators & Iterators": "Advanced",
 }
 
 _LEVEL_THRESHOLDS = [0, 40, 100, 160, 240]

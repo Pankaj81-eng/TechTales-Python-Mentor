@@ -2407,6 +2407,1189 @@ account.withdraw(200)''',
             ),
         ),
     ),
+    # ───────────────────────── UNIT 8 — ADVANCED FUNCTIONS ─────────────────────────
+    Topic(
+        key="dict_set_comprehensions",
+        title="Dict & Set Comprehensions",
+        summary="Build dictionaries and sets in one expressive line.",
+        lesson="""
+Just as list comprehensions build lists in one line, dict and set comprehensions do the same
+for their respective types.
+
+A **dict comprehension** uses `{key: value for item in collection}`:
+
+```python
+squares = {n: n**2 for n in range(1, 6)}
+# {1: 1, 2: 4, 3: 9, 4: 16, 5: 25}
+```
+
+A **set comprehension** uses `{expression for item in collection}`:
+
+```python
+words = ["apple", "fig", "banana", "fig"]
+lengths = {len(w) for w in words}
+# {3, 5, 6}  — duplicates removed automatically
+```
+
+The curly braces distinguish them from list comprehensions. The colon inside `{}` makes it a
+dict; no colon makes it a set. Set comprehensions are especially useful for collecting unique
+values without writing a loop — duplicates vanish by the nature of a set.
+        """,
+        example_code='''numbers = [1, 2, 3, 4, 5]
+
+squares_dict = {n: n**2 for n in numbers}
+print(squares_dict)
+
+words = ["apple", "fig", "banana", "fig", "kiwi"]
+unique_lengths = {len(w) for w in words}
+print(unique_lengths)''',
+        challenge="""
+Create a dict comprehension that maps the numbers 1 to 5 to their squares.
+Create a set comprehension that collects the unique lengths from a list of words.
+Print both results.
+        """,
+        starter_code='''numbers = [1, 2, 3, 4, 5]
+
+squares = {n: n**2 for n in numbers}
+print(squares)
+
+words = ["apple", "fig", "banana", "kiwi"]
+unique_lengths = {len(w) for w in words}
+print(unique_lengths)''',
+        mentor=MentorCard(
+            opening="You already know list comprehensions — dict and set comprehensions are the same idea, just for different collection types. The colon inside {} makes a dict; no colon makes a set.",
+            pass_message="Dict and set comprehensions make data transformation concise and readable. You'll reach for them whenever you need to build a mapping or remove duplicates in one pass.",
+            hints=(
+                ("A dict comprehension is used", "Use {key: value for item in collection}: for example {n: n**2 for n in numbers}."),
+                ("A set comprehension is used", "Use {expression for item in collection}: for example {len(w) for w in words}. No colon means set, not dict."),
+                ("Output is printed", "Call print() on both results to show the dict and the set."),
+            ),
+        ),
+        expected_output="{1: 1, 2: 4, 3: 9, 4: 16, 5: 25}",
+    ),
+    Topic(
+        key="args_kwargs",
+        title="*args and **kwargs",
+        summary="Write functions that accept any number of arguments.",
+        lesson="""
+Sometimes you don't know how many arguments a caller will pass. Python gives you two tools:
+
+`*args` collects any number of **positional** arguments into a tuple. The star is the syntax;
+`args` is just the conventional name:
+
+```python
+def total(*args):
+    return sum(args)
+
+print(total(1, 2, 3))        # 6
+print(total(10, 20))         # 30
+```
+
+`**kwargs` collects any number of **keyword** arguments into a dict:
+
+```python
+def greet(**kwargs):
+    for key, value in kwargs.items():
+        print(f"{key}: {value}")
+
+greet(name="Ari", level=5)
+```
+
+You can combine them — `def func(*args, **kwargs)` — accepting everything. The naming
+`args` and `kwargs` is convention, not a rule; only the `*` and `**` matter. Use `*args`
+when you want to add up a variable number of values, or build flexible utility functions.
+        """,
+        example_code='''def total(*args):
+    return sum(args)
+
+print(total(1, 2, 3))
+print(total(10, 20, 30, 40))
+
+def describe(**kwargs):
+    for key, value in kwargs.items():
+        print(f"{key} = {value}")
+
+describe(name="Ari", level=5)''',
+        challenge="""
+Write a function using *args that calculates the sum of any number of numbers.
+Call it with at least three different argument counts and print the results.
+        """,
+        starter_code='''def total(*args):
+    return sum(args)
+
+print(total(1, 2, 3))
+print(total(10, 20))
+print(total(5, 10, 15, 20))''',
+        mentor=MentorCard(
+            opening="*args lets a function say 'give me as many arguments as you like — I'll handle them.' It collects everything into a tuple you can loop over or pass to sum().",
+            pass_message="*args is how Python's own sum(), print(), and max() accept any number of values. You've learned the same trick.",
+            hints=(
+                ("*args is used in the function definition", "Add *args as a parameter: def total(*args): — the star collects all positional arguments into a tuple."),
+                ("The function handles multiple argument counts", "Call the function several times with different numbers of arguments to show it works in every case."),
+                ("Output is printed", "Wrap each call in print() so the results appear on screen."),
+            ),
+        ),
+    ),
+    Topic(
+        key="closures",
+        title="Closures",
+        summary="A function that remembers the variables from its enclosing scope.",
+        lesson="""
+When you define a function inside another function, the inner function can use the outer
+function's variables — even after the outer function has returned. This is called a **closure**.
+
+```python
+def make_multiplier(factor):
+    def multiply(x):
+        return x * factor   # 'factor' is remembered from the outer scope
+    return multiply
+
+double = make_multiplier(2)
+triple = make_multiplier(3)
+
+print(double(5))   # 10
+print(triple(5))   # 15
+```
+
+`make_multiplier` creates and returns `multiply`. Each returned function carries its own
+`factor` — `double` has 2, `triple` has 3. The outer variables are "closed over" (captured).
+
+Why not just use a global variable? Closures are self-contained — each instance has its own
+private state. They're the foundation of decorators, callback functions, and factory patterns
+you'll see in real Python code.
+        """,
+        example_code='''def make_multiplier(factor):
+    def multiply(x):
+        return x * factor
+    return multiply
+
+double = make_multiplier(2)
+triple = make_multiplier(3)
+
+print(double(5))
+print(triple(5))
+print(double(10))''',
+        challenge="""
+Create a closure — a function that returns another function. The inner function should use
+a variable from the outer function. Call the returned function and print the result.
+        """,
+        starter_code='''def make_multiplier(factor):
+    def multiply(x):
+        return x * factor
+    return multiply
+
+double = make_multiplier(2)
+print(double(7))
+print(double(10))''',
+        mentor=MentorCard(
+            opening="A closure is a function with a memory. The inner function remembers the outer variable even after the outer function has finished — like a snapshot of the outer scope.",
+            pass_message="Closures are one of Python's elegant patterns. You've just built a function factory — call it with different arguments to get different specialised functions.",
+            hints=(
+                ("A function is returned from another function", "The outer function should end with return inner_function_name — no parentheses, you're returning the function itself."),
+                ("The inner function uses an outer variable", "Inside the inner function, reference the outer parameter: return x * factor. Python will remember factor for you."),
+                ("Output is printed", "Call the returned function and wrap it in print(): print(double(5))."),
+            ),
+        ),
+    ),
+    Topic(
+        key="lambda_functions",
+        title="Lambda Functions",
+        summary="Write a small anonymous function in a single expression.",
+        lesson="""
+A lambda is a shortcut for writing a small, one-expression function without `def`. The syntax:
+
+```python
+lambda parameters: expression
+```
+
+Compare the two ways to write the same thing:
+
+```python
+def double(x):
+    return x * 2
+
+double = lambda x: x * 2
+```
+
+Lambdas are most useful when you need a tiny function as an argument to another function —
+like the `key` parameter in `sorted()`, or as a quick callback. The trade-off: lambdas can
+only hold a single expression, no if-blocks, no loops, no multiple statements. When your
+logic grows beyond one line, reach for `def`.
+
+Common uses: `sorted(words, key=lambda w: w[-1])`, `map(lambda x: x**2, numbers)`.
+        """,
+        example_code='''square = lambda x: x ** 2
+add = lambda a, b: a + b
+
+print(square(5))
+print(add(3, 4))
+
+words = ["banana", "fig", "apple"]
+by_last = sorted(words, key=lambda w: w[-1])
+print(by_last)''',
+        challenge="""
+Write a lambda that doubles a number. Write another lambda that takes two numbers and returns
+the larger one. Assign both to variables and call them.
+        """,
+        starter_code='''double = lambda x: x * 2
+print(double(5))
+
+larger = lambda a, b: a if a > b else b
+print(larger(3, 7))''',
+        mentor=MentorCard(
+            opening="A lambda is a one-line function with no name. It's not a replacement for def — it's a shortcut for tiny functions you pass as arguments, like a sort key.",
+            pass_message="Lambdas are a tool of precision: reach for them when a function is tiny and used in one place. For anything bigger, def is clearer.",
+            hints=(
+                ("A lambda function is defined", "Use the lambda keyword: double = lambda x: x * 2."),
+                ("The lambda is called", "Call it like any function: double(5) or larger(3, 7)."),
+                ("A second lambda is used", "Write another lambda for a different purpose and call it too."),
+            ),
+        ),
+    ),
+    Topic(
+        key="map_filter",
+        title="map() and filter()",
+        summary="Transform a list with map() and narrow it down with filter().",
+        lesson="""
+`map()` applies a function to every item in an iterable and returns a map object (convert to
+list with `list()`):
+
+```python
+numbers = [1, 2, 3, 4, 5]
+doubled = list(map(lambda x: x * 2, numbers))
+# [2, 4, 6, 8, 10]
+```
+
+`filter()` keeps only the items where the function returns True:
+
+```python
+evens = list(filter(lambda x: x % 2 == 0, numbers))
+# [2, 4]
+```
+
+Both pair naturally with lambda. The alternative is a list comprehension:
+- `[x * 2 for x in numbers]` does the same as `map`
+- `[x for x in numbers if x % 2 == 0]` does the same as `filter`
+
+Both approaches are valid — choose whichever reads more clearly. `map` and `filter` come
+from functional programming and are worth knowing because they appear in many real codebases.
+        """,
+        example_code='''numbers = [1, 2, 3, 4, 5]
+
+doubled = list(map(lambda x: x * 2, numbers))
+print(doubled)
+
+evens = list(filter(lambda x: x % 2 == 0, numbers))
+print(evens)''',
+        challenge="""
+Given a list of numbers, use map() to square each one and filter() to keep only those
+greater than 10. Print both results.
+        """,
+        starter_code='''numbers = [1, 2, 3, 4, 5]
+
+squared = list(map(lambda x: x ** 2, numbers))
+print(squared)
+
+big = list(filter(lambda x: x > 10, squared))
+print(big)''',
+        mentor=MentorCard(
+            opening="map() transforms every item; filter() keeps only the items that pass a test. Both need a function — that's where lambda shines.",
+            pass_message="map() and filter() are classic functional tools. You now have three ways to process lists: loops, comprehensions, and these — choose the most readable.",
+            hints=(
+                ("map() is used", "Call map() with a function and a list: list(map(lambda x: x**2, numbers))."),
+                ("filter() is used", "Call filter() with a test function: list(filter(lambda x: x > 10, squared))."),
+                ("Results are converted to lists and printed", "Wrap both calls in list() and then print() to see the results."),
+            ),
+        ),
+    ),
+    Topic(
+        key="sorted_key",
+        title="Sorting with a Key",
+        summary="Sort any collection your way using the key parameter.",
+        lesson="""
+`sorted()` returns a new sorted list without changing the original. Its power comes from the
+`key` parameter — a function that extracts a comparison value from each item:
+
+```python
+words = ["banana", "fig", "apple", "kiwi"]
+
+by_length = sorted(words, key=len)
+# ['fig', 'kiwi', 'apple', 'banana']
+
+by_last_char = sorted(words, key=lambda w: w[-1])
+```
+
+The `key` function is called on each item once; Python sorts by those extracted values, not
+the items themselves. `reverse=True` sorts descending:
+
+```python
+numbers = [3, 1, 4, 1, 5]
+desc = sorted(numbers, reverse=True)   # [5, 4, 3, 1, 1]
+```
+
+This is where lambda really earns its place — defining a custom sort criterion inline,
+without needing a full `def`.
+        """,
+        example_code='''words = ["banana", "fig", "apple", "kiwi"]
+
+by_length = sorted(words, key=len)
+print(by_length)
+
+by_last = sorted(words, key=lambda w: w[-1])
+print(by_last)
+
+numbers = [3, 1, 4, 1, 5]
+desc = sorted(numbers, reverse=True)
+print(desc)''',
+        challenge="""
+Given a list of words, sort them by their length (shortest first). Then sort them in reverse
+alphabetical order. Print both results.
+        """,
+        starter_code='''words = ["banana", "fig", "apple", "kiwi"]
+
+by_length = sorted(words, key=len)
+print(by_length)
+
+rev_alpha = sorted(words, reverse=True)
+print(rev_alpha)''',
+        mentor=MentorCard(
+            opening="sorted() with key= is one of Python's most practical tools. Give it a function that extracts what to sort by, and Python handles the rest — alphabetically, by length, by any attribute.",
+            pass_message="Custom sort keys are a daily Python skill. You've learned how to sort anything by any criterion — that covers 99% of real sorting needs.",
+            hints=(
+                ("sorted() is used with key=", "Pass key= to sorted: sorted(words, key=len) sorts by length."),
+                ("A lambda or function is used as key", "Use a lambda for a custom criterion: sorted(words, key=lambda w: w[-1])."),
+                ("A second sort criterion is used", "Apply a different sort or reverse=True for the second result."),
+            ),
+        ),
+    ),
+    Topic(
+        key="zip_function",
+        title="zip()",
+        summary="Pair up two lists element by element.",
+        lesson="""
+`zip()` takes two (or more) iterables and pairs their items together into tuples, stopping at
+the shortest list:
+
+```python
+names = ["Ari", "Bo", "Cal"]
+scores = [90, 75, 88]
+
+for name, score in zip(names, scores):
+    print(f"{name}: {score}")
+# Ari: 90
+# Bo: 75
+# Cal: 88
+```
+
+This is far cleaner than looping with index numbers. You can also build a dictionary directly
+from two lists:
+
+```python
+mapping = dict(zip(names, scores))
+# {'Ari': 90, 'Bo': 75, 'Cal': 88}
+```
+
+`zip()` returns a zip object (like `map` and `filter`); convert with `list()` if you need a
+list of tuples. It's the go-to tool whenever you have two parallel lists you need to combine.
+        """,
+        example_code='''names = ["Ari", "Bo", "Cal"]
+scores = [90, 75, 88]
+
+for name, score in zip(names, scores):
+    print(f"{name}: {score}")
+
+mapping = dict(zip(names, scores))
+print(mapping)''',
+        challenge="""
+Given a list of names and a list of scores, use zip() to pair them and print each name with
+their score. Then create a dictionary from the zipped pairs and print it.
+        """,
+        starter_code='''names = ["Alice", "Bob", "Carol"]
+scores = [85, 92, 78]
+
+for name, score in zip(names, scores):
+    print(f"{name}: {score}")
+
+result = dict(zip(names, scores))
+print(result)''',
+        mentor=MentorCard(
+            opening="zip() walks two lists in parallel, handing you one item from each per loop turn. It's cleaner than tracking index numbers manually.",
+            pass_message="zip() is one of those quiet tools you'll reach for constantly whenever you have two related lists. The dict(zip(...)) pattern is especially handy.",
+            hints=(
+                ("zip() is used", "Use zip() to pair two lists: for name, score in zip(names, scores):."),
+                ("Both lists are paired correctly", "Unpack the pairs in the for loop: for name, score in zip(...) gives you both values at once."),
+                ("A dict is created from zip", "Build a dict from the pairs: dict(zip(names, scores))."),
+            ),
+        ),
+    ),
+    Topic(
+        key="decorators_intro",
+        title="Decorators",
+        summary="Wrap a function with extra behaviour using @decorator syntax.",
+        lesson="""
+A decorator is a function that takes another function and returns a modified version of it.
+The `@` syntax is shorthand — `@my_decorator` above a function definition is the same as
+writing `my_function = my_decorator(my_function)` after it.
+
+Step by step:
+
+1. The outer function receives the original function as an argument
+2. A `wrapper` function inside adds the extra behaviour (before/after)
+3. The wrapper calls the original function to keep its effect
+4. The outer function returns the wrapper
+
+```python
+def shout(func):
+    def wrapper(*args, **kwargs):
+        print("Calling!")
+        result = func(*args, **kwargs)
+        print("Done!")
+        return result
+    return wrapper
+
+@shout
+def greet(name):
+    print(f"Hello {name}")
+
+greet("Ari")
+```
+
+Common uses: logging, timing, access control, caching. Decorators let you add cross-cutting
+behaviour to many functions without changing each one individually.
+        """,
+        example_code='''def shout(func):
+    def wrapper(*args, **kwargs):
+        print("Calling!")
+        result = func(*args, **kwargs)
+        print("Done!")
+        return result
+    return wrapper
+
+@shout
+def greet(name):
+    print(f"Hello {name}")
+
+greet("Ari")''',
+        challenge="""
+Write a decorator called `announce` that prints "Starting..." before a function runs and
+"Finished!" after it finishes. Apply it to a function and call it.
+        """,
+        starter_code='''def announce(func):
+    def wrapper(*args, **kwargs):
+        print("Starting...")
+        result = func(*args, **kwargs)
+        print("Finished!")
+        return result
+    return wrapper
+
+@announce
+def run_task(name):
+    print(f"Running {name}")
+
+run_task("mission")''',
+        mentor=MentorCard(
+            opening="A decorator is a function that wraps another function. The @syntax is sugar — it's just a clean way of saying 'pass this function through that other function.'",
+            pass_message="Decorators are how Python adds logging, timing, and access control to functions without touching the original code. You've built the pattern from scratch.",
+            hints=(
+                ("A decorator function is defined", "Define the outer function that accepts func as a parameter: def announce(func):."),
+                ("It wraps the original function", "Inside the decorator, define a wrapper that calls func(*args, **kwargs) to preserve the original behaviour."),
+                ("The @decorator syntax is used", "Apply the decorator with @announce directly above the function definition."),
+                ("Output shows before/after messages", 'Print "Starting..." before the call and "Finished!" after — both inside the wrapper.'),
+            ),
+        ),
+    ),
+    Topic(
+        key="exercise_functional",
+        title="Exercise: Functional Toolkit",
+        summary="Combine closures, map, filter, sorted, and zip in one program.",
+        lesson="""
+You've learned closures, lambda, map, filter, sorted, zip, and decorators — the full
+functional toolkit. This exercise puts the data-processing pieces together.
+
+Real data pipelines follow a common shape: start with raw data, **filter** out what you
+don't need, **transform** what remains, **sort** the result, and report. This is exactly
+the pattern that powers data science scripts, log analysers, and report generators.
+
+```python
+scores = [45, 82, 67, 91, 34, 78]
+passing = list(filter(lambda x: x >= 50, scores))
+doubled = list(map(lambda x: x * 2, passing))
+ranked = sorted(doubled, reverse=True)
+for i, s in enumerate(ranked, 1):
+    print(f"#{i}: {s}")
+```
+
+No magic — just three standard tools chained together. The challenge asks you to build
+the same shape with your own data and thresholds.
+        """,
+        example_code='''scores = [45, 82, 67, 91, 34, 78]
+
+passing = list(filter(lambda x: x >= 50, scores))
+doubled = list(map(lambda x: x * 2, passing))
+ranked = sorted(doubled, reverse=True)
+
+for i, s in enumerate(ranked, 1):
+    print(f"#{i}: {s}")''',
+        challenge="""
+Given a list of at least 5 numbers, use filter() to keep only those above a threshold,
+map() to transform the kept ones, and sorted() to order the result. Print the final
+processed list.
+        """,
+        starter_code='''data = [15, 82, 44, 67, 91, 30, 78, 52]
+threshold = 50
+
+kept = list(filter(lambda x: x > threshold, data))
+transformed = list(map(lambda x: x * 2, kept))
+result = sorted(transformed, reverse=True)
+print(result)''',
+        mentor=MentorCard(
+            opening="This is your functional capstone: filter out, transform, sort. Three tools, one pipeline. This shape runs underneath a huge portion of real data work.",
+            pass_message="You built a data pipeline from scratch. filter → map → sorted is a pattern you will recognise and reuse for years.",
+            hints=(
+                ("filter() is used", "Use filter() to keep only the values that meet your threshold: list(filter(lambda x: x > threshold, data))."),
+                ("map() is used on the filtered result", "Transform the filtered list with map(): list(map(lambda x: x * 2, kept))."),
+                ("sorted() orders the final list", "Sort the transformed list: sorted(transformed) or sorted(transformed, reverse=True)."),
+                ("Output is printed", "Print the final result list."),
+            ),
+        ),
+    ),
+    # ───────────────────────── UNIT 9 — ERROR HANDLING ─────────────────────────
+    Topic(
+        key="exceptions_intro",
+        title="What are Exceptions?",
+        summary="Understand how Python signals and handles errors at runtime.",
+        lesson="""
+Python has two kinds of errors:
+
+**SyntaxError** — caught before your program runs. Python refuses to start because it
+can't understand the code.
+
+**Exceptions** — raised *during* execution when something goes wrong at runtime. The program
+was running fine, then hit a situation it couldn't continue from.
+
+Common exceptions you'll encounter:
+
+| Exception | Caused by |
+|---|---|
+| `NameError` | Using a variable that doesn't exist |
+| `TypeError` | Wrong type — e.g. adding a number to a string |
+| `ValueError` | Right type, wrong value — e.g. `int("hello")` |
+| `IndexError` | Accessing a list position that doesn't exist |
+| `ZeroDivisionError` | Dividing by zero |
+
+Without handling, an exception **crashes** the program and prints a traceback. The traceback
+is Python's way of telling you exactly where and why it failed — read it bottom-up: the last
+line names the exception; the lines above show the call chain that led there.
+
+The next lesson covers how to handle exceptions gracefully.
+        """,
+        example_code='''# ZeroDivisionError
+result = 10 / 0
+
+# IndexError
+items = [1, 2]
+print(items[5])
+
+# ValueError
+number = int("hello")''',
+        challenge="""
+Write Python code that intentionally causes a ZeroDivisionError (divide a number by zero)
+and print a message before the division. Observe the error — this topic is about recognising
+exceptions, not yet handling them.
+        """,
+        starter_code='''print("About to divide...")
+result = 10 / 0
+print(result)''',
+        mentor=MentorCard(
+            opening="Every exception tells a story: what went wrong, where, and why. Learning to read them is as important as learning to prevent them.",
+            pass_message="You've deliberately caused an exception and read the traceback. Recognising what each exception means is the first step to handling them confidently.",
+            hints=(
+                ("A ZeroDivisionError is caused", "Divide any number by zero: result = 10 / 0."),
+                ("A print statement appears before the error", "Add print('About to divide...') before the division so you can see where the crash happens."),
+            ),
+        ),
+    ),
+    Topic(
+        key="try_except",
+        title="try / except",
+        summary="Catch exceptions and handle them gracefully instead of crashing.",
+        lesson="""
+`try` / `except` lets you attempt risky code and recover cleanly if it fails — instead of
+crashing, the program handles the error and keeps going.
+
+```python
+try:
+    number = int("hello")
+    print(number)
+except ValueError:
+    print("That's not a valid number!")
+```
+
+How it works:
+1. Python runs the `try` block
+2. If an exception occurs, execution jumps immediately to the matching `except` block
+3. The `except` block runs, then the program continues normally
+
+Always name the specific exception type you're catching — `except ValueError:` is safer
+than a bare `except:` which silently swallows all errors including ones you didn't expect.
+        """,
+        example_code='''user_input = "abc"
+
+try:
+    number = int(user_input)
+    print(f"Number: {number}")
+except ValueError:
+    print("That's not a valid number!")
+
+print("Program continues.")''',
+        challenge="""
+Write a program with a try/except block. In the try block, attempt to convert a string to
+an integer. In the except block, print a friendly error message. Show it works for both
+a valid and invalid input.
+        """,
+        starter_code='''user_input = "abc"
+
+try:
+    number = int(user_input)
+    print(f"Number: {number}")
+except ValueError:
+    print("That is not a valid number!")''',
+        mentor=MentorCard(
+            opening="try/except is how programs stay alive when something goes wrong. The try block attempts the risky action; the except block handles the fallout.",
+            pass_message="Defensive programming starts here. You now know how to let a program handle its own errors instead of crashing.",
+            hints=(
+                ("A try block is used", "Wrap the risky code in try: — indent the attempt by 4 spaces."),
+                ("An except block handles the error", "Add except ValueError: at the same indent level as try:, then indent the error message inside it."),
+                ("A specific exception type is caught", "Name the exception: except ValueError: catches bad conversions. Avoid bare except: — it hides unexpected bugs."),
+                ("Output shows the error was handled", "The except block should print a friendly message so the user knows what went wrong."),
+            ),
+        ),
+    ),
+    Topic(
+        key="multiple_exceptions",
+        title="Multiple Exception Types",
+        summary="Handle different kinds of errors with separate except blocks.",
+        lesson="""
+One `try` block can have multiple `except` clauses, each targeting a different exception type.
+Python checks them top-to-bottom and runs the first match:
+
+```python
+try:
+    items = [1, 2]
+    x = items[10]
+except IndexError:
+    print("Index out of range!")
+except TypeError as e:
+    print(f"Type error: {e}")
+```
+
+You can also catch several types in one line:
+
+```python
+except (ValueError, TypeError):
+    print("Invalid input")
+```
+
+Use `as e` to access the exception's message:
+
+```python
+except ValueError as e:
+    print(f"Error: {e}")
+```
+
+Order matters — put more specific exceptions first, more general ones last. This is the same
+top-to-bottom first-match rule as `if / elif / else`.
+        """,
+        example_code='''def risky(value):
+    try:
+        result = 10 / value
+        print(f"Result: {result}")
+    except ZeroDivisionError:
+        print("Cannot divide by zero!")
+    except TypeError as e:
+        print(f"Type error: {e}")
+
+risky(2)
+risky(0)
+risky("x")''',
+        challenge="""
+Write a try/except with at least two different except clauses catching different exception
+types. Show that each type of error is caught by its correct handler.
+        """,
+        starter_code='''def risky(value):
+    try:
+        result = 10 / value
+        print(f"Result: {result}")
+    except ZeroDivisionError:
+        print("Cannot divide by zero!")
+    except TypeError as e:
+        print(f"Type error: {e}")
+
+risky(2)
+risky(0)
+risky("x")''',
+        mentor=MentorCard(
+            opening="Different errors need different responses. Multiple except blocks let each error type get the right message and recovery path.",
+            pass_message="Multiple except clauses are the standard pattern in production code. You've learned to route different failures to the right handlers.",
+            hints=(
+                ("Multiple except blocks are used", "Add a second except clause after the first: except TypeError: — same indent level as the first except."),
+                ("Each block catches a different exception type", "Give each except a different exception name: ZeroDivisionError, TypeError, ValueError, etc."),
+                ("Output shows which exception was caught", "Print a distinct message in each except block so you can see which handler ran."),
+            ),
+        ),
+    ),
+    Topic(
+        key="finally_clause",
+        title="finally and else",
+        summary="Run cleanup code whether or not an exception occurred.",
+        lesson="""
+The complete exception handling structure has four parts:
+
+```python
+try:
+    # attempt the risky operation
+except SomeError:
+    # handle the error
+else:
+    # runs ONLY if no exception occurred
+finally:
+    # ALWAYS runs — error or not
+```
+
+`else` is the success path — code that should only run when everything worked.
+`finally` is the cleanup path — it always runs, making it perfect for closing files,
+releasing resources, or printing a "done" message regardless of outcome.
+
+```python
+try:
+    result = 10 / 2
+except ZeroDivisionError:
+    print("Can't divide by zero!")
+else:
+    print(f"Result: {result}")
+finally:
+    print("Calculation complete.")
+```
+
+`else` and `finally` are both optional — use what the situation needs. `finally` is the
+more commonly used of the two.
+        """,
+        example_code='''def divide(a, b):
+    try:
+        result = a / b
+    except ZeroDivisionError:
+        print("Can't divide by zero!")
+    else:
+        print(f"Result: {result}")
+    finally:
+        print("Done.")
+
+divide(10, 2)
+divide(10, 0)''',
+        challenge="""
+Write a try/except/finally block. In try, do a calculation. In except, handle a
+ZeroDivisionError. In finally, always print "Done." Show it works for both
+the error case and the non-error case.
+        """,
+        starter_code='''def divide(a, b):
+    try:
+        result = a / b
+        print(f"Result: {result}")
+    except ZeroDivisionError:
+        print("Cannot divide by zero!")
+    finally:
+        print("Done.")
+
+divide(10, 2)
+divide(10, 0)''',
+        mentor=MentorCard(
+            opening="finally is the guarantee — it runs no matter what. Use it for cleanup that must happen whether the operation succeeded or failed.",
+            pass_message="try / except / finally is the complete error handling pattern. Finally is especially useful for resources that must always be released.",
+            hints=(
+                ("A finally block is used", "Add finally: at the same indent level as try: and except: — the code inside always runs."),
+                ("finally runs in both cases", "Call the function twice — once with valid input, once with zero — and confirm 'Done.' appears both times."),
+                ("Output shows the always-runs message", "The finally block message should appear in every call's output, regardless of whether an exception was raised."),
+            ),
+        ),
+    ),
+    Topic(
+        key="raising_exceptions",
+        title="Raising Exceptions",
+        summary="Signal an error deliberately with raise when input is invalid.",
+        lesson="""
+Sometimes you want to raise an exception yourself — when a caller passes invalid input or
+violates a contract your function expects. Use `raise ExceptionType("message")`:
+
+```python
+def set_age(age):
+    if age < 0:
+        raise ValueError(f"Age cannot be negative: {age}")
+    return age
+```
+
+Common choices: `ValueError` for bad values, `TypeError` for wrong types. Raising in a
+function makes the caller responsible for handling the error — they can wrap the call in
+`try / except`.
+
+```python
+try:
+    set_age(-5)
+except ValueError as e:
+    print(f"Error: {e}")
+```
+
+Raising makes your function's requirements explicit and testable. It's far better than
+silently returning a wrong answer when input is bad — the caller knows immediately that
+something is wrong and gets a clear message explaining why.
+        """,
+        example_code='''def set_age(age):
+    if age < 0:
+        raise ValueError(f"Age cannot be negative: {age}")
+    return age
+
+try:
+    set_age(-5)
+except ValueError as e:
+    print(f"Error: {e}")
+
+print(set_age(25))''',
+        challenge="""
+Write a function that raises a ValueError if given an invalid input (e.g. a negative number
+or empty string). Call it inside a try/except to handle the error gracefully.
+        """,
+        starter_code='''def set_speed(speed):
+    if speed < 0:
+        raise ValueError(f"Speed cannot be negative: {speed}")
+    return speed
+
+try:
+    set_speed(-10)
+except ValueError as e:
+    print(f"Invalid: {e}")
+
+print(set_speed(60))''',
+        mentor=MentorCard(
+            opening="raise turns your function into an enforcer. When input is bad, don't return a wrong answer — signal the problem immediately with a clear message.",
+            pass_message="Raising exceptions is how you write trustworthy functions. Callers know exactly what can go wrong and can handle it confidently.",
+            hints=(
+                ("raise is used with an exception type", "Use raise ValueError('message') inside an if block that checks for invalid input."),
+                ("A message is included in the raise", "Pass a descriptive string: raise ValueError(f'Speed cannot be negative: {speed}')."),
+                ("The raised exception is caught", "Wrap the call in try / except ValueError as e: and print the error message."),
+            ),
+        ),
+    ),
+    Topic(
+        key="exercise_safe_calculator",
+        title="Exercise: Safe Calculator",
+        summary="Build a calculator that handles errors gracefully — never crashes.",
+        lesson="""
+You've learned try/except, multiple exceptions, finally, and raise. Now combine them to build
+a safe calculator — one that can handle any user mistake without crashing.
+
+This is the shape of production error handling: cover every foreseeable failure mode with a
+specific handler, use finally for cleanup that must always happen, and return clear messages
+instead of exceptions when things go wrong.
+
+```python
+def safe_divide(a, b):
+    try:
+        result = a / b
+    except ZeroDivisionError:
+        return "Cannot divide by zero"
+    except TypeError as e:
+        return f"Type error: {e}"
+    else:
+        return result
+    finally:
+        print("Calculation attempted.")
+```
+
+The challenge: implement this pattern yourself, then test it against every failure mode.
+        """,
+        example_code='''def safe_divide(a, b):
+    try:
+        result = a / b
+    except ZeroDivisionError:
+        return "Cannot divide by zero"
+    except TypeError as e:
+        return f"Type error: {e}"
+    else:
+        return result
+    finally:
+        print("Calculation attempted.")
+
+print(safe_divide(10, 2))
+print(safe_divide(10, 0))
+print(safe_divide(10, "x"))''',
+        challenge="""
+Build a safe_divide(a, b) function that:
+- catches ZeroDivisionError and returns a friendly message
+- catches TypeError for non-numeric inputs
+- uses finally to print "Done." after every attempt
+Test it with valid inputs, zero divisor, and invalid types.
+        """,
+        starter_code='''def safe_divide(a, b):
+    try:
+        result = a / b
+        return result
+    except ZeroDivisionError:
+        return "Can't divide by zero!"
+    except TypeError:
+        return "Numbers only!"
+    finally:
+        print("Done.")
+
+print(safe_divide(10, 2))
+print(safe_divide(10, 0))
+print(safe_divide(10, "x"))''',
+        mentor=MentorCard(
+            opening="This is your error handling capstone. A safe_divide that never crashes — ZeroDivisionError, TypeError, finally. Real production code looks exactly like this.",
+            pass_message="You've built a function that handles its own failures. That's defensive programming — and it's what separates robust code from fragile code.",
+            hints=(
+                ("ZeroDivisionError is caught", "Add except ZeroDivisionError: and return a friendly string like 'Can't divide by zero!'."),
+                ("TypeError is caught", "Add except TypeError: to handle non-numeric inputs like strings."),
+                ("finally runs every time", "Add finally: print('Done.') — it should print on every call, success or failure."),
+                ("Results are printed", "Call print(safe_divide(...)) three times with different inputs to test all three cases."),
+            ),
+        ),
+    ),
+    # ───────────────────────── UNIT 10 — GENERATORS & ITERATORS ─────────────────────────
+    Topic(
+        key="generators_yield",
+        title="Generators with yield",
+        summary="Write functions that produce values one at a time using yield.",
+        lesson="""
+A generator is a function that uses `yield` instead of `return`. Each time you call `next()`
+on it, the function runs until the next `yield`, pauses there, and remembers its position.
+
+```python
+def countdown(n):
+    while n > 0:
+        yield n
+        n -= 1
+
+gen = countdown(3)
+print(next(gen))   # 3
+print(next(gen))   # 2
+print(next(gen))   # 1
+```
+
+The key difference from a regular function: a generator produces values **on demand**, one
+at a time. A list `[0, 1, 2, ..., 999999]` builds all million items in memory immediately.
+A generator produces them one at a time as you ask — making generators ideal for large or
+infinite sequences.
+
+You can also loop over a generator directly with `for` — it calls `next()` for you until the
+generator is exhausted.
+        """,
+        example_code='''def countdown(n):
+    while n > 0:
+        yield n
+        n -= 1
+
+gen = countdown(3)
+print(next(gen))
+print(next(gen))
+print(next(gen))''',
+        challenge="""
+Write a generator function that yields the first n even numbers. Create a generator with
+n=5 and use a for loop to print the values.
+        """,
+        starter_code='''def even_numbers(n):
+    count = 0
+    current = 0
+    while count < n:
+        yield current
+        current += 2
+        count += 1
+
+gen = even_numbers(5)
+for num in gen:
+    print(num)''',
+        mentor=MentorCard(
+            opening="yield turns a function into a generator — a lazy sequence producer. Instead of building all values at once, it hands you one at a time, pausing between each.",
+            pass_message="Generators are one of Python's most elegant features. You've learned how to produce values lazily — that skill scales from small sequences to infinite streams.",
+            hints=(
+                ("yield is used in the function", "Replace return with yield inside a function. The function becomes a generator."),
+                ("The generator produces multiple values", "Each call to next() runs until the next yield — make sure the loop produces as many values as n requests."),
+                ("Values are retrieved with for or next()", "Either loop with for num in gen: or call next(gen) repeatedly to pull values from the generator."),
+            ),
+        ),
+        expected_output="0\n2\n4\n6\n8",
+    ),
+    Topic(
+        key="generator_expressions",
+        title="Generator Expressions",
+        summary="Create a lazy sequence in one line — like a list comprehension but memory-efficient.",
+        lesson="""
+A generator expression looks just like a list comprehension, but uses **parentheses** instead
+of square brackets:
+
+```python
+squares_list = [x**2 for x in range(6)]    # builds all 6 values immediately
+squares_gen  = (x**2 for x in range(6))    # produces values one at a time
+```
+
+The difference is memory. With a list comprehension on a million items, all million live in
+memory. A generator expression produces them lazily — each value is computed when requested
+and immediately discarded. Perfect when you only need to iterate once.
+
+They work seamlessly with functions that accept iterables:
+
+```python
+total = sum(x**2 for x in range(1, 11))   # no brackets needed inside sum()
+```
+
+Guideline: use a **list comprehension** when you need to store, index, or reuse the values;
+use a **generator expression** when you only need to iterate through them once.
+        """,
+        example_code='''squares_list = [x**2 for x in range(6)]
+squares_gen = (x**2 for x in range(6))
+
+print(squares_list)
+print(sum(squares_gen))
+
+total = sum(x**2 for x in range(1, 11))
+print(total)''',
+        challenge="""
+Create a generator expression that produces the squares of numbers 1 through 10. Pass it
+directly to sum() and print the total. Then create another that filters to only even squares
+and print them with a for loop.
+        """,
+        starter_code='''total = sum(x**2 for x in range(1, 11))
+print(f"Sum of squares: {total}")
+
+even_squares = (x**2 for x in range(1, 11) if x**2 % 2 == 0)
+for sq in even_squares:
+    print(sq)''',
+        mentor=MentorCard(
+            opening="A generator expression is a list comprehension that doesn't build the list. Use () instead of [] and you get a lazy producer — efficient for large sequences you only need once.",
+            pass_message="Generator expressions are one of Python's most elegant tools. sum(x**2 for x in range(n)) reads almost like maths notation.",
+            hints=(
+                ("A generator expression using () is used", "Use parentheses instead of brackets: (x**2 for x in range(1, 11)) — that's a generator, not a list."),
+                ("It is passed to sum() or iterated", "Pass the generator expression directly to sum(): sum(x**2 for x in range(1, 11))."),
+                ("A filter condition is added", "Add an if clause: (x**2 for x in range(1, 11) if x**2 % 2 == 0) keeps only even squares."),
+            ),
+        ),
+    ),
+    Topic(
+        key="iterator_protocol",
+        title="The Iterator Protocol",
+        summary="Understand how for loops work under the hood with iter() and next().",
+        lesson="""
+Every Python `for` loop works the same way internally:
+
+1. Call `iter()` on the collection to get an **iterator** object
+2. Call `next()` on the iterator repeatedly to get each value
+3. When the iterator is exhausted, it raises `StopIteration` — the loop ends
+
+You can drive this manually:
+
+```python
+fruits = ["apple", "banana", "cherry"]
+it = iter(fruits)
+print(next(it))   # apple
+print(next(it))   # banana
+print(next(it))   # cherry
+```
+
+This protocol is why `for` works on lists, strings, dicts, generators, files — they all
+implement the same two-method interface: `__iter__` (called by `iter()`) and `__next__`
+(called by `next()`).
+
+Understanding the protocol explains many things: why generators work in for loops, why you
+can only iterate a generator once, and how to make any custom object iterable.
+        """,
+        example_code='''fruits = ["apple", "banana", "cherry"]
+
+it = iter(fruits)
+print(next(it))
+print(next(it))
+print(next(it))''',
+        challenge="""
+Create a list of at least 3 items. Use iter() to get an iterator, then call next() three
+times manually to retrieve the values. Print each one.
+        """,
+        starter_code='''items = ["red", "green", "blue"]
+
+it = iter(items)
+print(next(it))
+print(next(it))
+print(next(it))''',
+        mentor=MentorCard(
+            opening="Every for loop is secretly calling iter() then next() repeatedly. Understanding this protocol explains how any object — list, generator, file — can be looped over.",
+            pass_message="You've seen the machinery under every Python loop. iter() and next() are the engine; for is just a friendly wrapper around them.",
+            hints=(
+                ("iter() is called on the collection", "Call iter() to get an iterator: it = iter(items)."),
+                ("next() retrieves values one at a time", "Call next(it) to get the next value. Each call advances the iterator one step."),
+                ("All items are printed", "Call next() three times (once per item) and print each result."),
+            ),
+        ),
+    ),
+    Topic(
+        key="exercise_custom_range",
+        title="Exercise: Custom Range Generator",
+        summary="Build your own range-like generator — generators and iterators working together.",
+        lesson="""
+You've learned generators with yield, generator expressions, and the iterator protocol. This
+final exercise puts them together: build your own version of Python's built-in `range()`.
+
+`range(start, stop, step)` produces a sequence of numbers from `start` up to (but not
+including) `stop`, stepping by `step`. You can recreate this behaviour with a generator:
+
+```python
+def my_range(start, stop, step=1):
+    current = start
+    while current < stop:
+        yield current
+        current += step
+
+for n in my_range(0, 10, 2):
+    print(n)   # 0, 2, 4, 6, 8
+```
+
+This is exactly what Python's built-in range does internally. Building it yourself cements
+the core generator idea: `yield` pauses and hands back one value; the loop continues from
+there on the next `next()` call. The generator can also be used with `next()` or passed to
+`list()` — it's a fully-fledged iterator.
+        """,
+        example_code='''def my_range(start, stop, step=1):
+    current = start
+    while current < stop:
+        yield current
+        current += step
+
+for n in my_range(0, 10, 2):
+    print(n)
+
+print(list(my_range(1, 6)))''',
+        challenge="""
+Build a my_range(start, stop, step=1) generator. It should yield numbers from start up to
+(but not including) stop, incrementing by step each time. Test it with at least two
+different sets of arguments.
+        """,
+        starter_code='''def my_range(start, stop, step=1):
+    current = start
+    while current < stop:
+        yield current
+        current += step
+
+for n in my_range(1, 10, 2):
+    print(n)
+
+for n in my_range(0, 6):
+    print(n)''',
+        mentor=MentorCard(
+            opening="This is your generators capstone — rebuild range() from scratch using yield. It's a small function, but understanding it means you understand how all generators work.",
+            pass_message="You've built Python's most fundamental iteration tool from scratch. That understanding of lazy evaluation and the yield mechanism will serve you well.",
+            hints=(
+                ("yield is used", "Use yield current inside the while loop to produce each value one at a time."),
+                ("The step is applied each iteration", "After yield, add current += step to advance to the next value."),
+                ("The loop stops before stop", "The while condition should be current < stop — strictly less than, not less-than-or-equal."),
+                ("It works with multiple argument sets", "Call my_range with two different sets of start/stop/step arguments to confirm it's flexible."),
+            ),
+        ),
+    ),
 )
 
 
