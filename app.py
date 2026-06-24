@@ -1963,7 +1963,10 @@ def main() -> None:
         user_email = session["user_email"]
         initialize_user(client, user_id)
         passed_topic_keys = get_passed_topic_keys(client)
-        all_exam_results = get_all_exam_results(client)
+        try:
+            all_exam_results = get_all_exam_results(client)
+        except Exception:
+            all_exam_results = {}
     else:
         client = None
         user_id = None
