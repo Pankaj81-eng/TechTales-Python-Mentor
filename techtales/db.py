@@ -178,6 +178,72 @@ def get_passed_topic_keys(client: Client) -> set[str]:
     return {row["topic_key"] for row in (result.data or [])}
 
 
+def save_exam_result(
+    client: Client,
+    user_id: str,
+    exam_key: str,
+    score: int,
+    total: int,
+    passed: bool,
+) -> int:
+    """Save one exam attempt. Returns XP awarded (100 on first pass, 0 otherwise)."""
+    existing_pass = (
+        client.table("exam_results")
+        .select("id")
+        .eq("exam_key", exam_key)
+        .eq("passed", True)
+        .limit(1)
+        .execute()
+    )
+    was_passed = bool(existing_pass.data)
+    xp_awarded = 100 if passed and not was_passed else 0
+
+    now = datetime.now(timezone.utc).isoformat()
+    client.table("exam_results").insert({
+        "user_id": user_id,
+        "exam_key": exam_key,
+        "score": score,
+        "total": total,
+        "passed": passed,
+        "xp_awarded": xp_awarded,
+        "taken_at": now,
+    }).execute()
+
+    if xp_awarded:
+        stats = client.table("learner_stats").select("xp").eq("user_id", user_id).execute()
+        current_xp = stats.data[0]["xp"] if stats.data else 0
+        client.table("learner_stats").update({
+            "xp": current_xp + xp_awarded,
+            "updated_at": now,
+        }).eq("user_id", user_id).execute()
+
+    return xp_awarded
+
+
+def get_exam_result(client: Client, exam_key: str) -> dict | None:
+    """Return the best (highest score) attempt for this exam, or None."""
+    result = (
+        client.table("exam_results")
+        .select("*")
+        .eq("exam_key", exam_key)
+        .order("score", desc=True)
+        .limit(1)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
+def get_all_exam_results(client: Client) -> dict[str, dict]:
+    """Return best result per exam, keyed by exam_key."""
+    result = client.table("exam_results").select("*").execute()
+    best: dict[str, dict] = {}
+    for row in (result.data or []):
+        key = row["exam_key"]
+        if key not in best or row["score"] > best[key]["score"]:
+            best[key] = row
+    return best
+
+
 def get_streak(client: Client) -> tuple[int, int]:
     result = client.table("submissions").select("submitted_at").execute()
 

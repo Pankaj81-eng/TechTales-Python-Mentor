@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import random
 from html import escape
 
 import streamlit as st
@@ -19,7 +20,10 @@ from techtales.db import (
     initialize_user,
     mark_topic_viewed,
     save_submission,
+    save_exam_result,
+    get_all_exam_results,
 )
+from techtales.quiz import EXAMS, EXAM_ORDER
 from techtales.validator import ChallengeValidator
 from techtales.execution import execute_user_code
 
@@ -884,6 +888,110 @@ def apply_theme() -> None:
             white-space: pre-wrap;
         }
 
+        /* ── EXAM UI ────────────────────────────────── */
+        .tt-exam-card {
+            background: #ffffff;
+            border: 1px solid #e0e7ff;
+            border-radius: 14px;
+            padding: 1.6rem 1.8rem;
+            margin-bottom: 1.2rem;
+            box-shadow: 0 2px 12px rgba(79, 70, 229, 0.08);
+        }
+
+        .tt-exam-prompt {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: #1e1b4b;
+            margin-bottom: 0.75rem;
+            font-family: 'Inter', sans-serif;
+            line-height: 1.5;
+        }
+
+        .tt-exam-code {
+            background: #0d1117;
+            color: #e6edf3;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.85rem;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            white-space: pre-wrap;
+        }
+
+        .tt-exam-code .tt-blank {
+            background: #fde68a;
+            color: #1e1b4b;
+            border-radius: 4px;
+            padding: 0 0.3rem;
+            font-weight: 700;
+        }
+
+        .tt-badge-earned {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: #ffffff;
+            border-radius: 999px;
+            padding: 0.4rem 1.1rem;
+            font-size: 0.9rem;
+            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+            box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+            margin: 0.5rem 0;
+        }
+
+        .tt-exam-result-pass {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            border-radius: 14px;
+            padding: 2rem;
+            text-align: center;
+            color: #ffffff;
+            margin-bottom: 1.2rem;
+        }
+
+        .tt-exam-result-fail {
+            background: #f8fafc;
+            border: 2px solid #e0e7ff;
+            border-radius: 14px;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 1.2rem;
+        }
+
+        .tt-exam-score {
+            font-size: 3rem;
+            font-weight: 800;
+            line-height: 1;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .tt-exam-score-label {
+            font-size: 0.85rem;
+            opacity: 0.85;
+            margin-top: 0.2rem;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Sidebar exam entry */
+        .tt-exam-sidebar-badge {
+            display: inline-block;
+            font-size: 0.65rem;
+            font-weight: 700;
+            background: #fef3c7;
+            color: #92400e;
+            border-radius: 999px;
+            padding: 0.1rem 0.45rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            margin-left: 0.3rem;
+            vertical-align: middle;
+        }
+        .tt-exam-sidebar-badge.earned {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
         /* ── DIFFICULTY BADGE ───────────────────────── */
         .tt-difficulty-badge {
             display: inline-block;
@@ -959,6 +1067,178 @@ def apply_theme() -> None:
         height=0,
         scrolling=False,
     )
+
+
+def get_unlocked_exams(passed_topic_keys: set[str]) -> list[str]:
+    """Return exam keys the learner has unlocked (trigger topic passed)."""
+    return [key for key in EXAM_ORDER if EXAMS[key].trigger_topic in passed_topic_keys]
+
+
+def _init_exam_state(exam_key: str) -> None:
+    """Randomise question order and option order; store in session state."""
+    exam = EXAMS[exam_key]
+    q_indices = random.sample(range(len(exam.questions)), min(20, len(exam.questions)))
+    shuffled_options = []
+    for qi in q_indices:
+        opts = list(exam.questions[qi].options)
+        random.shuffle(opts)
+        shuffled_options.append(opts)
+    st.session_state[f"exam_state_{exam_key}"] = {
+        "q_indices": q_indices,
+        "shuffled_options": shuffled_options,
+        "answers": [],
+        "xp_saved": False,
+    }
+
+
+def _render_exam_code(code: str) -> str:
+    """Render code snippet with ___ highlighted as a yellow blank."""
+    parts = code.split("___")
+    escaped = []
+    for i, part in enumerate(parts):
+        escaped.append(escape(part))
+        if i < len(parts) - 1:
+            escaped.append('<span class="tt-blank">___</span>')
+    return "".join(escaped)
+
+
+def render_exam(exam_key: str, client, user_id: str | None) -> None:
+    exam = EXAMS[exam_key]
+    state_key = f"exam_state_{exam_key}"
+
+    if state_key not in st.session_state:
+        _init_exam_state(exam_key)
+
+    state = st.session_state[state_key]
+    answers = state["answers"]
+    total = len(state["q_indices"])
+    current_q = len(answers)
+    is_done = current_q >= total
+
+    if st.button("← Back to lessons", key=f"exam_back_{exam_key}"):
+        st.session_state.pop(state_key, None)
+        st.session_state.selected_topic = TOPICS[0].key
+        st.rerun()
+
+    if is_done:
+        _render_exam_results(exam, state, client, user_id)
+        return
+
+    # Progress header
+    st.markdown(
+        f'<div style="font-family:Inter,sans-serif;margin-bottom:0.5rem">'
+        f'<span style="font-size:1.3rem">{exam.badge_emoji}</span>'
+        f'<strong style="font-size:1.1rem;color:#1e1b4b;margin-left:0.4rem">{escape(exam.title)}</strong>'
+        f'<span style="float:right;font-size:0.82rem;color:#6b7280;padding-top:0.25rem">'
+        f'Question {current_q + 1} of {total}</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+    st.progress((current_q) / total)
+
+    # Current question
+    qi = state["q_indices"][current_q]
+    question = exam.questions[qi]
+    opts = state["shuffled_options"][current_q]
+
+    code_html = ""
+    if question.code:
+        code_html = (
+            f'<div class="tt-exam-code">{_render_exam_code(question.code)}</div>'
+        )
+
+    st.markdown(
+        f'<div class="tt-exam-card">'
+        f'<div class="tt-exam-prompt">{escape(question.prompt)}</div>'
+        f'{code_html}'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    # Answer option buttons
+    col1, col2 = st.columns(2)
+    option_labels = ["A", "B", "C", "D"]
+    for i, opt in enumerate(opts):
+        col = col1 if i < 2 else col2
+        with col:
+            if st.button(
+                f"**{option_labels[i]}.**  {opt}",
+                key=f"exam_{exam_key}_q{current_q}_opt{i}",
+                use_container_width=True,
+            ):
+                state["answers"].append(opt)
+                st.rerun()
+
+
+def _render_exam_results(exam, state: dict, client, user_id: str | None) -> None:
+    answers = state["answers"]
+    q_indices = state["q_indices"]
+    score = sum(
+        1 for i, ans in enumerate(answers)
+        if ans == exam.questions[q_indices[i]].answer
+    )
+    total = len(answers)
+    passed = score / total >= exam.pass_threshold
+    pct = int(score / total * 100)
+
+    # Save to DB once per result
+    xp_awarded = 0
+    if not state.get("xp_saved") and client is not None and user_id is not None:
+        xp_awarded = save_exam_result(client, user_id, exam.key, score, total, passed)
+        state["xp_saved"] = True
+
+    if passed:
+        badge_html = (
+            f'<div class="tt-badge-earned">'
+            f'{exam.badge_emoji} {escape(exam.badge_name)}'
+            f'</div>'
+        )
+        xp_text = f"+{xp_awarded} XP" if xp_awarded else "Badge already earned"
+        st.markdown(
+            f'<div class="tt-exam-result-pass">'
+            f'<div class="tt-exam-score">{score}/{total}</div>'
+            f'<div class="tt-exam-score-label">{pct}% correct — Exam Passed!</div>'
+            f'<div style="margin:0.8rem 0">{badge_html}</div>'
+            f'<div style="font-size:0.88rem;opacity:0.9">{xp_text}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        if xp_awarded:
+            st.balloons()
+    else:
+        needed = int(exam.pass_threshold * total)
+        st.markdown(
+            f'<div class="tt-exam-result-fail">'
+            f'<div class="tt-exam-score" style="color:#4f46e5">{score}/{total}</div>'
+            f'<div class="tt-exam-score-label" style="color:#6b7280">'
+            f'{pct}% correct — you need {int(exam.pass_threshold*100)}% ({needed}/{total}) to earn the badge'
+            f'</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+    # Question review
+    with st.expander("Review your answers"):
+        for i, (qi, ans) in enumerate(zip(q_indices, answers)):
+            q = exam.questions[qi]
+            correct = ans == q.answer
+            icon = "✅" if correct else "❌"
+            st.markdown(
+                f"**Q{i+1}.** {icon} {q.prompt}  \n"
+                f"Your answer: `{ans}`"
+                + (f"  \nCorrect answer: `{q.answer}`" if not correct else ""),
+            )
+
+    col_retry, col_back = st.columns(2)
+    with col_retry:
+        if st.button("Try Again", use_container_width=True, key=f"exam_retry_{exam.key}"):
+            _init_exam_state(exam.key)
+            st.rerun()
+    with col_back:
+        if st.button("← Back to lessons", use_container_width=True, key=f"exam_done_back_{exam.key}"):
+            st.session_state.pop(f"exam_state_{exam.key}", None)
+            st.session_state.selected_topic = TOPICS[0].key
+            st.rerun()
 
 
 def is_topic_unlocked(topic_key: str, passed_topic_keys: set[str]) -> bool:
@@ -1046,10 +1326,12 @@ def render_auth_page() -> None:
                     st.warning("Enter a valid email and a password of at least 6 characters.")
 
 
-def render_sidebar(client, user_id: str | None, passed_topic_keys: set[str], user_email: str = "") -> None:
+def render_sidebar(client, user_id: str | None, passed_topic_keys: set[str], user_email: str = "", all_exam_results: dict | None = None) -> None:
     is_guest = client is None
     progress = get_progress(client) if not is_guest else {}
     completed_count = len(passed_topic_keys)
+    if all_exam_results is None:
+        all_exam_results = {}
 
     if not is_guest:
         current_xp = get_current_xp(client)
@@ -1194,6 +1476,31 @@ def render_sidebar(client, user_id: str | None, passed_topic_keys: set[str], use
                     type="primary" if is_active else "secondary",
                 ):
                     st.session_state.selected_topic = topic_key
+                    st.rerun()
+
+        # ── EXAMS section ─────────────────────────────
+        unlocked_exams = get_unlocked_exams(passed_topic_keys)
+        if unlocked_exams:
+            st.divider()
+            st.caption("EXAMS")
+            for exam_key in unlocked_exams:
+                exam = EXAMS[exam_key]
+                result = all_exam_results.get(exam_key)
+                earned = result is not None and result.get("passed")
+                badge_label = "DONE" if earned else "NEW"
+                badge_class = "earned" if earned else ""
+                is_active_exam = st.session_state.get("selected_topic") == f"__exam__{exam_key}"
+                label = (
+                    f"  {exam.badge_emoji}  {exam.title}"
+                    f'  {"✓" if earned else "→"}'
+                )
+                if st.button(
+                    label,
+                    key=f"nav_exam_{exam_key}",
+                    use_container_width=True,
+                    type="primary" if is_active_exam else "secondary",
+                ):
+                    st.session_state.selected_topic = f"__exam__{exam_key}"
                     st.rerun()
 
 
@@ -1656,16 +1963,18 @@ def main() -> None:
         user_email = session["user_email"]
         initialize_user(client, user_id)
         passed_topic_keys = get_passed_topic_keys(client)
+        all_exam_results = get_all_exam_results(client)
     else:
         client = None
         user_id = None
         user_email = ""
         passed_topic_keys = st.session_state.get("guest_passed_topics", set())
+        all_exam_results = {}
 
     if "selected_topic" not in st.session_state:
         st.session_state.selected_topic = TOPICS[0].key
 
-    render_sidebar(client, user_id, passed_topic_keys, user_email)
+    render_sidebar(client, user_id, passed_topic_keys, user_email, all_exam_results)
 
     selected_topic_key = st.session_state.selected_topic
 
@@ -1674,6 +1983,12 @@ def main() -> None:
             st.session_state.selected_topic = TOPICS[0].key
             st.rerun()
         render_stats_page(client)
+    elif selected_topic_key.startswith("__exam__"):
+        exam_key = selected_topic_key[len("__exam__"):]
+        if exam_key in EXAMS:
+            render_exam(exam_key, client, user_id)
+        else:
+            st.error("Unknown exam.")
     else:
         if client is None:
             render_guest_banner()
