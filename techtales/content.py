@@ -44,7 +44,7 @@ This is the traditional first program every programmer writes. One line is enoug
 In Python, a variable is like a label on a useful tool in the workshop. You choose a name,
 place a value inside it, and then reuse that name whenever the story needs the value again.
 
-Python creates a variable when you assign a value with `=`. Good names are descriptive,
+Python creates a variable when you assign a value with `=`. Good variable names are descriptive,
 lowercase, and use underscores when they need more than one word.
         """,
         example_code='''hero_name = "Ari"
