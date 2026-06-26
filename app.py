@@ -418,16 +418,17 @@ def apply_theme() -> None:
             box-shadow: 0 2px 12px rgba(79, 70, 229, 0.3) !important;
         }
 
+        /* Topic buttons — slate/cool-white, clearly distinct from the lavender unit headers */
         section[data-testid="stSidebar"] button[data-testid="baseButton-secondary"] {
-            background: rgba(165, 180, 252, 0.1) !important;
-            border: 1px solid rgba(165, 180, 252, 0.2) !important;
-            color: #e0e7ff !important;
+            background: rgba(148, 163, 184, 0.07) !important;
+            border: 1px solid rgba(148, 163, 184, 0.13) !important;
+            color: #cbd5e1 !important;
         }
 
         section[data-testid="stSidebar"] button[data-testid="baseButton-secondary"]:hover {
-            background: rgba(165, 180, 252, 0.22) !important;
-            border-color: rgba(165, 180, 252, 0.4) !important;
-            color: #ffffff !important;
+            background: rgba(148, 163, 184, 0.18) !important;
+            border-color: rgba(148, 163, 184, 0.3) !important;
+            color: #f1f5f9 !important;
         }
 
         /* Locked lessons: faded, no hover zoom */
@@ -439,6 +440,42 @@ def apply_theme() -> None:
         section[data-testid="stSidebar"] button[disabled]:hover {
             transform: none !important;
             box-shadow: none !important;
+        }
+
+        /* ── SIDEBAR UNIT EXPANDERS ─────────────────── */
+        /* Container: flush, no card border */
+        section[data-testid="stSidebar"] [data-testid="stExpander"] {
+            background: transparent !important;
+            border: none !important;
+            border-top: 1px solid rgba(99, 102, 241, 0.18) !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+
+        /* Header row: lavender uppercase — the "section label" look */
+        section[data-testid="stSidebar"] [data-testid="stExpander"] summary,
+        section[data-testid="stSidebar"] details > summary {
+            color: #a5b4fc !important;
+            font-size: 0.7rem !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.07em !important;
+            text-transform: uppercase !important;
+            padding: 0.45rem 0.1rem !important;
+            background: transparent !important;
+            border: none !important;
+        }
+
+        /* The expand/collapse arrow icon */
+        section[data-testid="stSidebar"] [data-testid="stExpander"] summary svg {
+            fill: #6366f1 !important;
+        }
+
+        /* Body area inside expander */
+        section[data-testid="stSidebar"] [data-testid="stExpander"] > div:last-child {
+            padding: 0 0 0.25rem !important;
+            background: transparent !important;
         }
 
         /* ── MAIN PROGRESS BAR ──────────────────────── */
@@ -1420,46 +1457,39 @@ def render_sidebar(client, user_id: str | None, passed_topic_keys: set[str], use
 
         st.divider()
 
+        selected_key = st.session_state.get("selected_topic", "")
         for unit_name, topic_keys in UNIT_STRUCTURE.items():
             unit_completed = sum(1 for key in topic_keys if key in passed_topic_keys)
-            st.markdown(
-                f'<div style="margin:0.85rem 0 0.15rem;display:flex;align-items:center;'
-                f'justify-content:space-between;padding:0 0.1rem">'
-                f'<span style="color:#818cf8;font-size:0.68rem;font-weight:700;'
-                f'letter-spacing:0.08em;text-transform:uppercase;font-family:Inter,sans-serif">'
-                f'{unit_name}</span>'
-                f'<span style="color:#4c4980;font-size:0.65rem;font-family:Inter,sans-serif">'
-                f'{unit_completed}/{len(topic_keys)}</span>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
+            has_active = selected_key in topic_keys
+            label = f"{unit_name}  ·  {unit_completed}/{len(topic_keys)}"
 
-            for topic_key in topic_keys:
-                topic = next((t for t in TOPICS if t.key == topic_key), None)
-                if not topic:
-                    continue
+            with st.expander(label, expanded=has_active):
+                for topic_key in topic_keys:
+                    topic = next((t for t in TOPICS if t.key == topic_key), None)
+                    if not topic:
+                        continue
 
-                completed = topic_key in passed_topic_keys
-                item = progress.get(topic_key)
-                viewed = bool(item and item.viewed)
-                topic_icon = TOPIC_ICONS.get(topic_key, "")
+                    completed = topic_key in passed_topic_keys
+                    item = progress.get(topic_key)
+                    viewed = bool(item and item.viewed)
+                    topic_icon = TOPIC_ICONS.get(topic_key, "")
 
-                if completed:
-                    state_icon = "✓"
-                elif viewed:
-                    state_icon = "◉"
-                else:
-                    state_icon = "○"
+                    if completed:
+                        state_icon = "✓"
+                    elif viewed:
+                        state_icon = "◉"
+                    else:
+                        state_icon = "○"
 
-                is_active = st.session_state.get("selected_topic") == topic_key
-                if st.button(
-                    f"  {state_icon}  {topic_icon}  {topic.title}",
-                    key=f"nav_{topic_key}",
-                    use_container_width=True,
-                    type="primary" if is_active else "secondary",
-                ):
-                    st.session_state.selected_topic = topic_key
-                    st.rerun()
+                    is_active = selected_key == topic_key
+                    if st.button(
+                        f"  {state_icon}  {topic_icon}  {topic.title}",
+                        key=f"nav_{topic_key}",
+                        use_container_width=True,
+                        type="primary" if is_active else "secondary",
+                    ):
+                        st.session_state.selected_topic = topic_key
+                        st.rerun()
 
         # ── EXAMS section ─────────────────────────────
         unlocked_exams = get_unlocked_exams(passed_topic_keys)
