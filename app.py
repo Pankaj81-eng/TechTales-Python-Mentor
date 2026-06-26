@@ -1376,7 +1376,7 @@ def render_sidebar(client, user_id: str | None, passed_topic_keys: set[str], use
                     unsafe_allow_html=True,
                 )
             if st.button("Log Out", use_container_width=True, key="logout_btn"):
-                for k in ["supabase_session", "supabase_client", "selected_topic", "sidebar_open_units"]:
+                for k in ["supabase_session", "supabase_client", "selected_topic"]:
                     st.session_state.pop(k, None)
                 st.rerun()
 
@@ -1419,37 +1419,20 @@ def render_sidebar(client, user_id: str | None, passed_topic_keys: set[str], use
                 st.rerun()
 
         st.divider()
-        st.caption("LESSONS")
-
-        # Initialise which units are open (all collapsed by default)
-        if "sidebar_open_units" not in st.session_state:
-            st.session_state.sidebar_open_units = set()
 
         for unit_name, topic_keys in UNIT_STRUCTURE.items():
             unit_completed = sum(1 for key in topic_keys if key in passed_topic_keys)
-            is_open = unit_name in st.session_state.sidebar_open_units
-            arrow = "▼" if is_open else "▶"
-            unit_label = f"{arrow}  {unit_name}  {unit_completed}/{len(topic_keys)}"
-
-            # Unit header button — toggling open/close without page rerun loss
             st.markdown(
-                f'<div style="margin-bottom:2px">',
+                f'<div style="margin:0.85rem 0 0.15rem;display:flex;align-items:center;'
+                f'justify-content:space-between;padding:0 0.1rem">'
+                f'<span style="color:#818cf8;font-size:0.68rem;font-weight:700;'
+                f'letter-spacing:0.08em;text-transform:uppercase;font-family:Inter,sans-serif">'
+                f'{unit_name}</span>'
+                f'<span style="color:#4c4980;font-size:0.65rem;font-family:Inter,sans-serif">'
+                f'{unit_completed}/{len(topic_keys)}</span>'
+                f'</div>',
                 unsafe_allow_html=True,
             )
-            if st.button(
-                unit_label,
-                key=f"unit_{unit_name}",
-                use_container_width=True,
-            ):
-                if is_open:
-                    st.session_state.sidebar_open_units.discard(unit_name)
-                else:
-                    st.session_state.sidebar_open_units.add(unit_name)
-                st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
-
-            if not is_open:
-                continue
 
             for topic_key in topic_keys:
                 topic = next((t for t in TOPICS if t.key == topic_key), None)
