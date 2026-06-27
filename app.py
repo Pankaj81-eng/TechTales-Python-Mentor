@@ -1443,6 +1443,42 @@ def render_sidebar(client, user_id: str | None, passed_topic_keys: set[str], use
                 unsafe_allow_html=True,
             )
 
+            # ── Earned badges strip ────────────────────
+            earned_badges = [
+                EXAMS[k] for k in EXAM_ORDER
+                if all_exam_results.get(k, {}).get("passed")
+            ]
+            if earned_badges:
+                chips = "".join(
+                    f'<span style="display:inline-flex;align-items:center;gap:0.25rem;'
+                    f'background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;'
+                    f'border-radius:999px;padding:0.22rem 0.65rem;font-size:0.72rem;'
+                    f'font-weight:700;font-family:Inter,sans-serif;white-space:nowrap;'
+                    f'box-shadow:0 2px 8px rgba(79,70,229,0.35)">'
+                    f'{exam.badge_emoji} {exam.badge_name}</span>'
+                    for exam in earned_badges
+                )
+                st.markdown(
+                    f'<div style="margin:0.55rem 0 0.1rem">'
+                    f'<div style="font-size:0.62rem;font-weight:700;letter-spacing:0.08em;'
+                    f'color:#6366f1;text-transform:uppercase;font-family:Inter,sans-serif;'
+                    f'margin-bottom:0.35rem">🎖️ My Badges</div>'
+                    f'<div style="display:flex;flex-wrap:wrap;gap:0.3rem">{chips}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+            # ── Profile button ─────────────────────────
+            is_profile = st.session_state.get("selected_topic") == "__profile__"
+            if st.button(
+                "👤 My Profile",
+                key="nav_profile",
+                use_container_width=True,
+                type="primary" if is_profile else "secondary",
+            ):
+                st.session_state.selected_topic = "__profile__"
+                st.rerun()
+
         if user_email == _ADMIN_EMAIL:
             st.divider()
             is_stats = st.session_state.get("selected_topic") == "__stats__"
@@ -1729,6 +1765,95 @@ def render_results_panel(topic_key: str, submission: object | None) -> None:
     st.markdown("".join(sections_html), unsafe_allow_html=True)
 
 
+def render_profile_page(
+    client,
+    user_id: str | None,
+    user_email: str,
+    passed_topic_keys: set[str],
+    all_exam_results: dict,
+) -> None:
+    current_xp = get_current_xp(client) if client else 0
+    level, level_xp, level_to_next = get_level(current_xp)
+    current_streak, longest_streak = get_streak(client) if client else (0, 0)
+    completed_count = len(passed_topic_keys)
+
+    st.markdown(
+        f'<h2 style="color:#1e1b4b;font-family:Inter,sans-serif;margin-bottom:0.25rem">👤 My Profile</h2>'
+        f'<div style="color:#6b7280;font-size:0.88rem;font-family:Inter,sans-serif;margin-bottom:1.5rem">{user_email}</div>',
+        unsafe_allow_html=True,
+    )
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total XP", current_xp)
+    c2.metric("Level", level)
+    c3.metric("Topics Done", f"{completed_count}/{len(TOPICS)}")
+    c4.metric("🔥 Streak", f"{current_streak} day{'s' if current_streak != 1 else ''}")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Badge showcase ──────────────────────────────────────────
+    st.markdown(
+        '<h3 style="color:#1e1b4b;font-family:Inter,sans-serif;margin-bottom:0.75rem">🎖️ Badges</h3>',
+        unsafe_allow_html=True,
+    )
+
+    badge_cards = []
+    for key in EXAM_ORDER:
+        exam = EXAMS[key]
+        result = all_exam_results.get(key)
+        earned = result is not None and result.get("passed")
+        score_text = f"{result['score']}/{result['total']}" if result else ""
+
+        if earned:
+            card = (
+                f'<div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);'
+                f'border-radius:14px;padding:1.2rem;text-align:center;'
+                f'box-shadow:0 4px 18px rgba(79,70,229,0.35)">'
+                f'<div style="font-size:2.2rem;line-height:1">{exam.badge_emoji}</div>'
+                f'<div style="color:#ffffff;font-weight:700;font-size:0.85rem;'
+                f'font-family:Inter,sans-serif;margin-top:0.5rem">{exam.badge_name}</div>'
+                f'<div style="color:#c7d2fe;font-size:0.72rem;font-family:Inter,sans-serif;'
+                f'margin-top:0.2rem">{score_text} · Passed</div>'
+                f'</div>'
+            )
+        else:
+            card = (
+                f'<div style="background:#f1f5f9;border:2px dashed #cbd5e1;'
+                f'border-radius:14px;padding:1.2rem;text-align:center;opacity:0.55">'
+                f'<div style="font-size:2.2rem;line-height:1;filter:grayscale(1)">{exam.badge_emoji}</div>'
+                f'<div style="color:#94a3b8;font-weight:700;font-size:0.85rem;'
+                f'font-family:Inter,sans-serif;margin-top:0.5rem">{exam.badge_name}</div>'
+                f'<div style="color:#cbd5e1;font-size:0.72rem;font-family:Inter,sans-serif;'
+                f'margin-top:0.2rem">Locked</div>'
+                f'</div>'
+            )
+        badge_cards.append(card)
+
+    cols = st.columns(3)
+    for i, card in enumerate(badge_cards):
+        with cols[i % 3]:
+            st.markdown(card, unsafe_allow_html=True)
+            st.markdown("<div style='margin-bottom:0.75rem'></div>", unsafe_allow_html=True)
+
+    # ── Progress by unit ────────────────────────────────────────
+    st.markdown(
+        '<h3 style="color:#1e1b4b;font-family:Inter,sans-serif;margin:1.5rem 0 0.75rem">📚 Progress by Unit</h3>',
+        unsafe_allow_html=True,
+    )
+    for unit_name, topic_keys in UNIT_STRUCTURE.items():
+        done = sum(1 for k in topic_keys if k in passed_topic_keys)
+        total = len(topic_keys)
+        pct = done / total if total else 0
+        st.markdown(
+            f'<div style="display:flex;align-items:center;justify-content:space-between;'
+            f'font-family:Inter,sans-serif;font-size:0.82rem;margin-bottom:0.15rem">'
+            f'<span style="color:#374151">{unit_name}</span>'
+            f'<span style="color:#6b7280">{done}/{total}</span></div>',
+            unsafe_allow_html=True,
+        )
+        st.progress(pct)
+
+
 _ADMIN_EMAIL = "pankajverma.mca@gmail.com"
 
 
@@ -1994,7 +2119,9 @@ def main() -> None:
 
     selected_topic_key = st.session_state.selected_topic
 
-    if selected_topic_key == "__stats__" and user_email == _ADMIN_EMAIL:
+    if selected_topic_key == "__profile__" and client is not None:
+        render_profile_page(client, user_id, user_email, passed_topic_keys, all_exam_results)
+    elif selected_topic_key == "__stats__" and user_email == _ADMIN_EMAIL:
         if st.button("← Back to lessons", key="stats_back"):
             st.session_state.selected_topic = TOPICS[0].key
             st.rerun()
