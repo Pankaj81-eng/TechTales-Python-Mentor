@@ -1479,6 +1479,24 @@ def render_sidebar(client, user_id: str | None, passed_topic_keys: set[str], use
                 st.session_state.selected_topic = "__profile__"
                 st.rerun()
 
+            # ── Continue Learning shortcut ──────────────
+            next_topic = next((t for t in TOPICS if t.key not in passed_topic_keys), None)
+            if next_topic:
+                icon = TOPIC_ICONS.get(next_topic.key, "")
+                st.markdown(
+                    '<div style="font-size:0.62rem;font-weight:700;letter-spacing:0.08em;'
+                    'color:#10b981;text-transform:uppercase;font-family:Inter,sans-serif;'
+                    'margin-top:0.6rem;margin-bottom:0.2rem">▶ Up Next</div>',
+                    unsafe_allow_html=True,
+                )
+                if st.button(
+                    f"{icon}  {next_topic.title}",
+                    key="nav_continue",
+                    use_container_width=True,
+                ):
+                    st.session_state.selected_topic = next_topic.key
+                    st.rerun()
+
         if user_email == _ADMIN_EMAIL:
             st.divider()
             is_stats = st.session_state.get("selected_topic") == "__stats__"
@@ -2113,7 +2131,11 @@ def main() -> None:
         all_exam_results = {}
 
     if "selected_topic" not in st.session_state:
-        st.session_state.selected_topic = TOPICS[0].key
+        if client is not None and passed_topic_keys:
+            next_key = next((t.key for t in TOPICS if t.key not in passed_topic_keys), TOPICS[0].key)
+        else:
+            next_key = TOPICS[0].key
+        st.session_state.selected_topic = next_key
 
     render_sidebar(client, user_id, passed_topic_keys, user_email, all_exam_results)
 
