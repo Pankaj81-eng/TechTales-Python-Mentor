@@ -2130,8 +2130,13 @@ def main() -> None:
         passed_topic_keys = st.session_state.get("guest_passed_topics", set())
         all_exam_results = {}
 
-    if "selected_topic" not in st.session_state:
-        if client is not None and passed_topic_keys:
+    is_auth = client is not None
+    was_auth = st.session_state.get("_was_authenticated", False)
+    just_logged_in = is_auth and not was_auth
+    st.session_state._was_authenticated = is_auth
+
+    if "selected_topic" not in st.session_state or just_logged_in:
+        if is_auth and passed_topic_keys:
             next_key = next((t.key for t in TOPICS if t.key not in passed_topic_keys), TOPICS[0].key)
         else:
             next_key = TOPICS[0].key
