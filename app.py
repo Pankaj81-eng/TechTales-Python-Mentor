@@ -2146,7 +2146,18 @@ def main() -> None:
     render_sidebar(client, user_id, passed_topic_keys, user_email, all_exam_results)
 
     if st.session_state.pop("_scroll_to_top", False):
-        components.html("<script>window.parent.scrollTo(0, 0);</script>", height=0)
+        components.html("""
+<script>
+var doc = window.parent.document;
+var el = (
+    doc.querySelector('[data-testid="stMainBlockContainer"]') ||
+    doc.querySelector('section[data-testid="stMain"]') ||
+    doc.querySelector('section.main') ||
+    doc.querySelector('.main')
+);
+if (el) { el.scrollTop = 0; } else { window.parent.scrollTo(0, 0); }
+</script>
+""", height=0)
 
     selected_topic_key = st.session_state.selected_topic
 
