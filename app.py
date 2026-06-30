@@ -1930,6 +1930,7 @@ def render_locked_topic(topic_key: str) -> None:
 
 
 def render_lesson(topic_key: str, client, user_id: str | None, passed_topic_keys: set[str]) -> None:
+    st.markdown('<div id="lesson-top"></div>', unsafe_allow_html=True)
     topic = get_topic(topic_key)
     if client is not None:
         mark_topic_viewed(client, user_id, topic.key)
@@ -2148,14 +2149,26 @@ def main() -> None:
     if st.session_state.pop("_scroll_to_top", False):
         components.html("""
 <script>
-var doc = window.parent.document;
-var el = (
-    doc.querySelector('[data-testid="stMainBlockContainer"]') ||
-    doc.querySelector('section[data-testid="stMain"]') ||
-    doc.querySelector('section.main') ||
-    doc.querySelector('.main')
-);
-if (el) { el.scrollTop = 0; } else { window.parent.scrollTo(0, 0); }
+setTimeout(function() {
+    var doc = window.parent.document;
+    var anchor = doc.getElementById('lesson-top');
+    if (anchor) {
+        anchor.scrollIntoView({ behavior: 'instant', block: 'start' });
+        return;
+    }
+    // fallback: scroll every candidate container
+    ['[data-testid="stMainBlockContainer"]',
+     '[data-testid="stApp"]',
+     'section[data-testid="stMain"]',
+     'section.main', '.main'
+    ].forEach(function(s) {
+        var el = doc.querySelector(s);
+        if (el) el.scrollTop = 0;
+    });
+    window.parent.scrollTo(0, 0);
+    doc.documentElement.scrollTop = 0;
+    doc.body.scrollTop = 0;
+}, 150);
 </script>
 """, height=0)
 
