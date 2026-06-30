@@ -1735,6 +1735,7 @@ def render_results_panel(topic_key: str, submission: object | None) -> None:
                 use_container_width=True,
             ):
                 st.session_state.selected_topic = next_key
+                st.session_state._scroll_to_top = True
                 st.rerun()
     else:
         st.markdown(
@@ -2143,6 +2144,9 @@ def main() -> None:
         st.session_state.selected_topic = next_key
 
     render_sidebar(client, user_id, passed_topic_keys, user_email, all_exam_results)
+
+    if st.session_state.pop("_scroll_to_top", False):
+        components.html("<script>window.parent.scrollTo(0, 0);</script>", height=0)
 
     selected_topic_key = st.session_state.selected_topic
 
